@@ -203,16 +203,16 @@ export default function Calculadora() {
       case 'ac': return colors.btnAc;
       case 'op': return colors.btnOp;
       case 'sci': return colors.btnSci;
-      case 'sign': case 'pct': case 'backspace': return colors.btnMod;
+      case 'sign': case 'pct': return colors.btnMod;
+      case 'backspace': return colors.btnDigit;
       default: return colors.btnDigit;
     }
   };
 
   const getBtnTextColor = (btn: CalcBtn) => {
-    if (btn.type === 'eq' || btn.type === 'ac') return '#ffffff';
-    if (btn.type === 'op') return colors.textAccent;
-    if (btn.type === 'sci') return colors.textAmber;
-    if (btn.type === 'backspace') return colors.textAccent;
+    if (['ac', 'sign', 'pct'].includes(btn.type)) return '#000000';
+    if (['op', 'eq'].includes(btn.type)) return '#ffffff';
+    if (btn.type === 'backspace') return colors.amber;
     return colors.textPrimary;
   };
 
@@ -221,7 +221,7 @@ export default function Calculadora() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
-      <View style={IS_DESKTOP ? styles.desktopWrapper : undefined}>
+      <View style={[IS_DESKTOP && styles.desktopWrapper, { flex: 1 }]}>
         <View style={[styles.display, { backgroundColor: colors.bgDeep }]}>
           <Text style={[styles.appLabel, { color: colors.border }]}>CALCUBA</Text>
           <Text style={[styles.exprText, { color: colors.textSecondary }]} numberOfLines={1}>
@@ -301,14 +301,13 @@ const styles = StyleSheet.create({
     maxWidth: MAX_CALC_WIDTH,
     alignSelf: 'center',
     width: '100%',
+    flex: 1,
   },
   display: {
     flex: 1,
     justifyContent: 'flex-end',
     paddingHorizontal: IS_DESKTOP ? spacing.xxl : spacing.xl,
     paddingBottom: spacing.lg,
-    borderBottomLeftRadius: radii.xl,
-    borderBottomRightRadius: radii.xl,
   },
   appLabel: {
     fontSize: 9,

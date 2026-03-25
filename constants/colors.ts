@@ -44,9 +44,9 @@ export type ColorScheme = Omit<typeof darkColors, 'statusBar'> & Omit<typeof lig
 
 export const darkColors = {
   // Backgrounds - iOS dark mode depth
-  bg: palette.dark1,
+  bg: palette.dark0,
   bgDeep: palette.dark0,
-  bgCard: palette.dark2,
+  bgCard: palette.dark1,
   bgInput: palette.dark1,
 
   // Borders - subtle iOS separators
@@ -55,11 +55,11 @@ export const darkColors = {
 
   // Calculator buttons - iOS dark style
   btnDigit: palette.dark2,
-  btnOp: '#1A3A5C',
-  btnSci: palette.dark1,
-  btnEq: palette.accent,
-  btnAc: palette.dark3,
-  btnMod: palette.dark4,
+  btnOp: palette.amber,
+  btnSci: palette.dark2,
+  btnEq: palette.amber,
+  btnAc: palette.light4,
+  btnMod: palette.light4,
 
   // Text colors
   textPrimary: palette.white,
@@ -89,7 +89,7 @@ export const darkColors = {
 export const lightColors = {
   // Backgrounds - iOS light mode
   bg: palette.light1,
-  bgDeep: palette.light0,
+  bgDeep: palette.light1,
   bgCard: palette.light0,
   bgInput: palette.light2,
 
@@ -99,11 +99,11 @@ export const lightColors = {
 
   // Calculator buttons - iOS light style
   btnDigit: palette.light0,
-  btnOp: '#D1EBFF',
-  btnSci: palette.light2,
-  btnEq: palette.accent,
-  btnAc: palette.light0,
-  btnMod: '#E5E5EA',
+  btnOp: palette.amber,
+  btnSci: palette.light0,
+  btnEq: palette.amber,
+  btnAc: palette.light3,
+  btnMod: palette.light3,
 
   // Text colors
   textPrimary: palette.black,

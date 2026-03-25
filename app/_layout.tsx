@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, View, Platform } from 'react-native';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { radii, shadows } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,8 +50,8 @@ function InnerLayout() {
             backgroundColor: colors.tabBar,
             borderTopColor: colors.tabBorder,
             borderTopWidth: StyleSheet.hairlineWidth,
-            height: 84,
-            paddingBottom: 28,
+            height: Platform.OS === 'ios' ? 84 : 64,
+            paddingBottom: Platform.OS === 'ios' ? 28 : 8,
             paddingTop: 8,
           },
           tabBarActiveTintColor: colors.tabActive,
