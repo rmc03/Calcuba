@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { radii, shadows, spacing, typography } from '../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 
 interface Denominacion {
   valor: number;
@@ -73,7 +74,6 @@ export default function Billetes() {
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: colors.bg }]}>
-      {/* ── Total card ── */}
       <View style={[s.totalCard, { backgroundColor: colors.bgDeep, borderColor: colors.border }]}>
         <View>
           <Text style={[s.totalLabel, { color: colors.textTertiary }]}>TOTAL EN CUP</Text>
@@ -96,12 +96,17 @@ export default function Billetes() {
           onPress={limpiar}
           disabled={!hasAny}
         >
-          <Text style={[s.clearText, { color: colors.accent }]}>✕ Limpiar</Text>
+          <Ionicons 
+            name="trash-outline" 
+            size={16} 
+            color={colors.accent} 
+          />
+          <Text style={[s.clearText, { color: colors.accent }]}> Limpiar</Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={s.scroll}>
-        <SectionHeader label="💵 Billetes" colors={colors} />
+        <SectionHeader icon="cash" label="Billetes" colors={colors} />
         {billetes.map((d) => (
           <DenomRow
             key={d.valor}
@@ -114,7 +119,7 @@ export default function Billetes() {
           />
         ))}
 
-        <SectionHeader label="🪙 Monedas" colors={colors} />
+        <SectionHeader icon="coins" label="Monedas" colors={colors} />
         {monedas.map((d) => (
           <DenomRow
             key={d.valor}
@@ -133,9 +138,10 @@ export default function Billetes() {
   );
 }
 
-function SectionHeader({ label, colors }: { label: string; colors: any }) {
+function SectionHeader({ icon, label, colors }: { icon: string; label: string; colors: any }) {
   return (
     <View style={[s.sectionHeader, { borderBottomColor: colors.border }]}>
+      <Ionicons name={icon as any} size={14} color={colors.textSecondary} style={{ marginRight: 6 }} />
       <Text style={[s.sectionLabel, { color: colors.textSecondary }]}>{label}</Text>
     </View>
   );
@@ -162,7 +168,6 @@ function DenomRow({ denom, count, onIncrement, onDecrement, onChangeText, colors
         hasValue && shadows.sm,
       ]}
     >
-      {/* Left */}
       <View style={s.rowLeft}>
         <Text style={[s.denomLabel, { color: colors.textPrimary }]}>{denom.label}</Text>
         {hasValue && (
@@ -172,7 +177,6 @@ function DenomRow({ denom, count, onIncrement, onDecrement, onChangeText, colors
         )}
       </View>
 
-      {/* Counter */}
       <View style={s.counter}>
         <TouchableOpacity
           style={[s.counterBtn, { backgroundColor: colors.bgInput, borderColor: colors.border }]}
@@ -180,9 +184,11 @@ function DenomRow({ denom, count, onIncrement, onDecrement, onChangeText, colors
           activeOpacity={0.7}
           disabled={count === 0}
         >
-          <Text style={[s.counterBtnText, { color: count === 0 ? colors.textTertiary : colors.textSecondary }]}>
-            −
-          </Text>
+          <Ionicons 
+            name="remove" 
+            size={18} 
+            color={count === 0 ? colors.textTertiary : colors.textSecondary} 
+          />
         </TouchableOpacity>
 
         <TextInput
@@ -204,7 +210,7 @@ function DenomRow({ denom, count, onIncrement, onDecrement, onChangeText, colors
           onPress={onIncrement}
           activeOpacity={0.7}
         >
-          <Text style={[s.counterBtnText, { color: '#fff' }]}>+</Text>
+          <Ionicons name="add" size={18} color="#fff" />
         </TouchableOpacity>
       </View>
     </View>
@@ -222,12 +228,16 @@ const s = StyleSheet.create({
   totalValue: { fontSize: 36, fontFamily: typography.sans, fontWeight: '700', marginTop: 2 },
   totalSub: { fontSize: 11, fontFamily: typography.mono, marginTop: 2 },
   clearBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: radii.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
     borderWidth: 1,
   },
   clearText: { fontFamily: typography.mono, fontSize: 12, fontWeight: '600' },
   scroll: { padding: spacing.md },
   sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: spacing.sm, paddingHorizontal: spacing.xs,
     marginTop: spacing.md, marginBottom: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -251,7 +261,6 @@ const s = StyleSheet.create({
     width: 34, height: 34, borderRadius: radii.sm,
     alignItems: 'center', justifyContent: 'center',
   },
-  counterBtnText: { fontSize: 20, fontFamily: typography.sans, lineHeight: 24 },
   counterInput: {
     width: 52, height: 34, borderRadius: radii.xs,
     fontSize: 15, fontFamily: typography.mono,

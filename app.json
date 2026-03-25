@@ -5,20 +5,24 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "scheme": "calcuba",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0d1b2a"
+      "backgroundColor": "#1C1C1E"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.calcuba.app",
+      "infoPlist": {
+        "UILaunchStoryboardName": "LaunchScreen"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0d1b2a"
+        "backgroundColor": "#1C1C1E"
       },
       "predictiveBackGestureEnabled": false
     },

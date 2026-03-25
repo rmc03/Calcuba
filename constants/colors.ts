@@ -1,68 +1,79 @@
 export const palette = {
-  // Brand
-  accent: '#e94560',
-  accentDim: 'rgba(233,69,96,0.15)',
-  amber: '#f5a623',
-  amberDim: 'rgba(245,166,35,0.12)',
-  green: '#22c55e',
+  // iOS Accent Blue (like system blue)
+  accent: '#007AFF',
+  accentDim: 'rgba(0,122,255,0.15)',
+  
+  // Secondary accent - orange for highlights (like iOS orange)
+  amber: '#FF9500',
+  amberDim: 'rgba(255,149,0,0.12)',
+  
+  // Green for success states
+  green: '#34C759',
+  
+  // System grays (iOS style)
+  gray1: '#8E8E93',
+  gray2: '#636366',
+  gray3: '#48484A',
+  gray4: '#3A3A3C',
+  gray5: '#2C2C2E',
+  gray6: '#1C1C1E',
 
-  // Dark neutrals
-  dark0: '#070f19',
-  dark1: '#0d1b2a',
-  dark2: '#0a1520',
-  dark3: '#111c2b',
-  dark4: '#1a2d42',
-  dark5: '#1e3a56',
-  dark6: '#2a4a6e',
-  dark7: '#3a5a7e',
+  // Dark mode backgrounds (iOS dark mode)
+  dark0: '#000000',
+  dark1: '#1C1C1E',
+  dark2: '#2C2C2E',
+  dark3: '#3A3A3C',
+  dark4: '#48484A',
+  dark5: '#636366',
+  dark6: '#787880',
 
-  // Light neutrals
-  light0: '#f0f4f8',
-  light1: '#e8edf3',
-  light2: '#dce3ec',
-  light3: '#cdd6e2',
-  light4: '#b5c2d1',
-  light5: '#8a9ab0',
+  // Light mode backgrounds (iOS light mode)
+  light0: '#FFFFFF',
+  light1: '#F2F2F7',
+  light2: '#E5E5EA',
+  light3: '#D1D1D6',
+  light4: '#C7C7CC',
+  light5: '#AEAEB2',
 
-  // Text
-  white: '#ffffff',
-  black: '#0a0f1a',
+  // Text colors
+  white: '#FFFFFF',
+  black: '#000000',
 };
 
-export type ColorScheme = typeof darkColors & typeof lightColors;
+export type ColorScheme = Omit<typeof darkColors, 'statusBar'> & Omit<typeof lightColors, 'statusBar'> & { statusBar: 'light' | 'dark' };
 
 export const darkColors = {
-  // Backgrounds
+  // Backgrounds - iOS dark mode depth
   bg: palette.dark1,
-  bgDeep: palette.dark2,
-  bgCard: palette.dark3,
-  bgInput: palette.dark2,
+  bgDeep: palette.dark0,
+  bgCard: palette.dark2,
+  bgInput: palette.dark1,
 
-  // Borders
+  // Borders - subtle iOS separators
   border: palette.dark4,
   borderFocus: palette.dark5,
 
-  // Calculator buttons
-  btnDigit: palette.dark4,
-  btnOp: '#1b3a6b',
-  btnSci: '#0f2035',
+  // Calculator buttons - iOS dark style
+  btnDigit: palette.dark2,
+  btnOp: '#1A3A5C',
+  btnSci: palette.dark1,
   btnEq: palette.accent,
-  btnAc: palette.dark4,
-  btnMod: palette.dark6,
+  btnAc: palette.dark3,
+  btnMod: palette.dark4,
 
-  // Text
+  // Text colors
   textPrimary: palette.white,
-  textSecondary: '#94a3b8',
-  textTertiary: '#4a5568',
+  textSecondary: palette.dark6,
+  textTertiary: palette.gray1,
   textAccent: palette.accent,
   textAmber: palette.amber,
   textGreen: palette.green,
 
-  // Tab bar
-  tabBar: '#0d1b2aee',
-  tabBorder: palette.dark4,
+  // Tab bar - iOS style
+  tabBar: palette.dark1,
+  tabBorder: palette.dark3,
   tabActive: palette.accent,
-  tabInactive: '#4a5568',
+  tabInactive: palette.gray1,
 
   // Status bar
   statusBar: 'light' as const,
@@ -76,37 +87,37 @@ export const darkColors = {
 };
 
 export const lightColors = {
-  // Backgrounds
-  bg: palette.light0,
-  bgDeep: palette.white,
-  bgCard: palette.white,
-  bgInput: palette.light1,
+  // Backgrounds - iOS light mode
+  bg: palette.light1,
+  bgDeep: palette.light0,
+  bgCard: palette.light0,
+  bgInput: palette.light2,
 
-  // Borders
+  // Borders - subtle iOS separators
   border: palette.light3,
   borderFocus: palette.light4,
 
-  // Calculator buttons
-  btnDigit: palette.white,
-  btnOp: '#dbeafe',
+  // Calculator buttons - iOS light style
+  btnDigit: palette.light0,
+  btnOp: '#D1EBFF',
   btnSci: palette.light2,
   btnEq: palette.accent,
-  btnAc: palette.white,
-  btnMod: '#e0e7ef',
+  btnAc: palette.light0,
+  btnMod: '#E5E5EA',
 
-  // Text
+  // Text colors
   textPrimary: palette.black,
-  textSecondary: '#4a5568',
-  textTertiary: '#94a3b8',
+  textSecondary: palette.gray2,
+  textTertiary: palette.gray1,
   textAccent: palette.accent,
-  textAmber: '#c47d0e',
-  textGreen: '#16a34a',
+  textAmber: '#CC7700',
+  textGreen: '#228B22',
 
-  // Tab bar
-  tabBar: '#f0f4f8ee',
-  tabBorder: palette.light3,
+  // Tab bar - iOS style
+  tabBar: palette.light0,
+  tabBorder: palette.light2,
   tabActive: palette.accent,
-  tabInactive: '#94a3b8',
+  tabInactive: palette.gray1,
 
   // Status bar
   statusBar: 'dark' as const,

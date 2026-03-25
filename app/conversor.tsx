@@ -12,6 +12,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
 import { radii, shadows, spacing, typography } from '../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 
 const STORAGE_KEY = 'calcuba_rates';
 const API_URL = 'https://api.eltoque.com/v1/trm?date=today';
@@ -66,7 +67,6 @@ export default function Conversor() {
       const cached = await AsyncStorage.getItem(STORAGE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached) as Rates;
-        // Validate structure before accepting
         if (parsed.USD && parsed.EUR && parsed.MLC) {
           setRates(parsed);
           setOffline(true);
@@ -112,7 +112,6 @@ export default function Conversor() {
     loadCachedRates().then(() => fetchRates());
   }, []);
 
-  // Recalculate toVal whenever inputs change
   useEffect(() => {
     if (!rates) return;
     const num = parseFloat(fromVal);
@@ -144,7 +143,6 @@ export default function Conversor() {
     <SafeAreaView style={[s.container, { backgroundColor: colors.bg }]}>
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
 
-        {/* ── Status bar ── */}
         <View
           style={[
             s.statusBar,
@@ -175,13 +173,15 @@ export default function Conversor() {
             disabled={loading}
             style={[s.refreshBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }, shadows.sm]}
           >
-            <Text style={[s.refreshText, { color: colors.accent }, loading && { opacity: 0.3 }]}>
-              ↺
-            </Text>
+            <Ionicons 
+              name="refresh" 
+              size={20} 
+              color={loading ? colors.textTertiary : colors.accent}
+              style={loading && { opacity: 0.5 }} 
+            />
           </TouchableOpacity>
         </View>
 
-        {/* ── Rates banner ── */}
         {rates && (
           <View style={s.ratesBanner}>
             <RateChip label="USD" value={rates.USD} colors={colors} />
@@ -190,7 +190,6 @@ export default function Conversor() {
           </View>
         )}
 
-        {/* ── Converter card ── */}
         <View style={[s.card, { backgroundColor: colors.bgCard, borderColor: colors.border }, shadows.md]}>
           <CurrencyField
             label="De"
@@ -208,7 +207,7 @@ export default function Conversor() {
               style={[s.swapBtn, { backgroundColor: colors.bgDeep, borderColor: colors.accent }, shadows.sm]}
               onPress={swap}
             >
-              <Text style={[s.swapText, { color: colors.accent }]}>⇄</Text>
+              <Ionicons name="swap-vertical" size={22} color={colors.accent} />
             </TouchableOpacity>
             <View style={[s.swapLine, { backgroundColor: colors.border }]} />
           </View>
@@ -224,7 +223,6 @@ export default function Conversor() {
           />
         </View>
 
-        {/* ── Unit rate ── */}
         {rates && fromVal && toVal && (
           <View style={[s.resultCard, { backgroundColor: colors.bgDeep, borderColor: colors.borderFocus }]}>
             <Text style={[s.resultText, { color: colors.textSecondary }]}>
@@ -236,7 +234,6 @@ export default function Conversor() {
           </View>
         )}
 
-        {/* ── Footnote ── */}
         <Text style={[s.footnote, { color: colors.textTertiary }]}>
           Tasas informales · eltoque.com
         </Text>
@@ -322,7 +319,6 @@ const s = StyleSheet.create({
     width: 36, height: 36, borderRadius: radii.full,
     alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth,
   },
-  refreshText: { fontSize: 20 },
   ratesBanner: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
   chip: {
     flex: 1, borderRadius: radii.md, padding: spacing.sm,
@@ -345,7 +341,6 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1,
   },
-  swapText: { fontSize: 20 },
   fieldBlock: { gap: spacing.sm },
   fieldLabel: { fontSize: 10, fontFamily: typography.mono, letterSpacing: 1, textTransform: 'uppercase' },
   fieldInput: {

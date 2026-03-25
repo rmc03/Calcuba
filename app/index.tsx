@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,17 @@ import {
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { radii, shadows, spacing, typography } from '../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 
-const { width } = Dimensions.get('window');
-const GRID_PADDING = 14;
-const BTN_GAP = 10;
-const BTN_SIZE = (width - GRID_PADDING * 2 - BTN_GAP * 3) / 4;
-const BTN_HEIGHT = BTN_SIZE * 0.9;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const IS_DESKTOP = SCREEN_WIDTH > 600;
+const MAX_CALC_WIDTH = 400;
+const CALC_WIDTH = Math.min(SCREEN_WIDTH, MAX_CALC_WIDTH);
+
+const GRID_PADDING = IS_DESKTOP ? 20 : 14;
+const BTN_GAP = IS_DESKTOP ? 12 : 10;
+const BTN_SIZE = (CALC_WIDTH - GRID_PADDING * 2 - BTN_GAP * 3) / 4;
+const BTN_HEIGHT = BTN_SIZE * 0.88;
 
 type BtnType = 'digit' | 'op' | 'eq' | 'ac' | 'sign' | 'pct' | 'sci' | 'backspace';
 
@@ -25,13 +30,12 @@ interface CalcBtn {
   value?: string;
 }
 
-// ✅ Teclado en orden correcto (bug corregido)
 const BUTTONS: CalcBtn[][] = [
   [
     { label: 'sin', type: 'sci', value: 'sin' },
     { label: 'cos', type: 'sci', value: 'cos' },
     { label: 'tan', type: 'sci', value: 'tan' },
-    { label: '⌫', type: 'backspace' },
+    { label: '', type: 'backspace', value: 'backspace' },
   ],
   [
     { label: 'log', type: 'sci', value: 'log' },
@@ -40,9 +44,9 @@ const BUTTONS: CalcBtn[][] = [
     { label: 'x²', type: 'sci', value: 'sq' },
   ],
   [
-    { label: '1/x', type: 'sci', value: 'inv' },
+    { label: '¹/x', type: 'sci', value: 'inv' },
     { label: 'AC', type: 'ac' },
-    { label: '+/−', type: 'sign' },
+    { label: '+/-', type: 'sign' },
     { label: '%', type: 'pct' },
   ],
   [
@@ -209,63 +213,81 @@ export default function Calculadora() {
     return colors.textPrimary;
   };
 
+  const isDigitBtn = (btn: CalcBtn) => btn.type === 'digit';
+  const isFuncBtn = (btn: CalcBtn) => ['ac', 'sign', 'pct', 'backspace', 'sci'].includes(btn.type);
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* ── Display ── */}
-      <View style={[styles.display, { backgroundColor: colors.bgDeep }]}>
-        <Text style={[styles.appLabel, { color: colors.border }]}>CALCUBA</Text>
-        <Text style={[styles.exprText, { color: colors.textSecondary }]} numberOfLines={1}>
-          {expr || ' '}
-        </Text>
-        <Text
-          style={[styles.curText, { color: colors.textPrimary }]}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.35}
-        >
-          {cur}
-        </Text>
-      </View>
+      <View style={IS_DESKTOP ? styles.desktopWrapper : undefined}>
+        <View style={[styles.display, { backgroundColor: colors.bgDeep }]}>
+          <Text style={[styles.appLabel, { color: colors.border }]}>CALCUBA</Text>
+          <Text style={[styles.exprText, { color: colors.textSecondary }]} numberOfLines={1}>
+            {expr || ' '}
+          </Text>
+          <Text
+            style={[styles.curText, { color: colors.textPrimary }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.35}
+          >
+            {cur}
+          </Text>
+        </View>
 
-      {/* ── Divider ── */}
-      <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-      {/* ── Button Grid ── */}
-      <View style={styles.grid}>
+        <View style={styles.grid}>
         {BUTTONS.map((row, ri) => (
           <View key={ri} style={styles.row}>
             {row.map((btn, bi) => {
               const isEq = btn.type === 'eq';
               const shadow = isEq ? shadows.accent(colors.accent) : shadows.sm;
+              
+              const isWide = btn.type === 'digit' && ri === 6 && bi === 0;
+              const btnWidth = isWide ? BTN_SIZE * 2 + BTN_GAP : BTN_SIZE;
+
               return (
                 <TouchableOpacity
                   key={bi}
                   style={[
                     styles.btn,
-                    { backgroundColor: getBtnBg(btn), width: BTN_SIZE, height: BTN_HEIGHT },
+                    { 
+                      backgroundColor: getBtnBg(btn), 
+                      width: btnWidth, 
+                      height: BTN_HEIGHT,
+                    },
                     shadow,
                   ]}
                   onPress={() => handlePress(btn)}
                   activeOpacity={0.65}
                 >
-                  <Text
-                    style={[
-                      styles.btnText,
-                      {
-                        color: getBtnTextColor(btn),
-                        fontSize: btn.type === 'sci' ? 13 : btn.type === 'backspace' ? 20 : 22,
-                        fontFamily: btn.type === 'sci' ? typography.mono : typography.sans,
-                        fontWeight: btn.type === 'digit' ? '400' : '600',
-                      },
-                    ]}
-                  >
-                    {btn.label}
-                  </Text>
+                  {btn.type === 'backspace' ? (
+                    <Ionicons 
+                      name="backspace-outline" 
+                      size={22} 
+                      color={getBtnTextColor(btn)} 
+                    />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.btnText,
+                        {
+                          color: getBtnTextColor(btn),
+                          fontSize: btn.type === 'sci' ? 13 : 22,
+                          fontFamily: btn.type === 'sci' ? typography.mono : typography.sans,
+                          fontWeight: isDigitBtn(btn) ? '400' : isFuncBtn(btn) ? '500' : '500',
+                        },
+                      ]}
+                    >
+                      {btn.label}
+                    </Text>
+                  )}
                 </TouchableOpacity>
               );
             })}
           </View>
         ))}
+      </View>
       </View>
     </SafeAreaView>
   );
@@ -273,10 +295,15 @@ export default function Calculadora() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  desktopWrapper: {
+    maxWidth: MAX_CALC_WIDTH,
+    alignSelf: 'center',
+    width: '100%',
+  },
   display: {
     flex: 1,
     justifyContent: 'flex-end',
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: IS_DESKTOP ? spacing.xxl : spacing.xl,
     paddingBottom: spacing.lg,
     borderBottomLeftRadius: radii.xl,
     borderBottomRightRadius: radii.xl,
@@ -289,13 +316,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   exprText: {
-    fontSize: 17,
+    fontSize: IS_DESKTOP ? 20 : 17,
     fontFamily: typography.mono,
     textAlign: 'right',
     marginBottom: 2,
   },
   curText: {
-    fontSize: 72,
+    fontSize: IS_DESKTOP ? 84 : 72,
     fontFamily: typography.sans,
     fontWeight: Platform.select({ ios: '200', android: '100', default: '200' }),
     textAlign: 'right',
@@ -318,6 +345,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   btnText: {
+    fontSize: IS_DESKTOP ? 24 : 22,
     includeFontPadding: false,
   },
 });

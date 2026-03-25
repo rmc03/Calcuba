@@ -1,8 +1,9 @@
 import { Tabs } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { radii, shadows } from '../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 
 function TabIcon({
   color,
@@ -11,44 +12,21 @@ function TabIcon({
 }: {
   color: string;
   size: number;
-  variant: 'calc' | 'conversor' | 'billetes';
+  variant: 'calc' | 'conversor' | 'billets';
 }) {
-  if (variant === 'calc') {
-    return (
-      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{ width: size * 0.72, height: size * 0.72, borderWidth: 1.8, borderColor: color, borderRadius: 5 }}>
-          <View style={{ flex: 1, flexDirection: 'row' }}>
-            <View style={{ flex: 1, borderRightWidth: 0.8, borderBottomWidth: 0.8, borderColor: color }} />
-            <View style={{ flex: 1, borderBottomWidth: 0.8, borderColor: color }} />
-          </View>
-          <View style={{ flex: 1, flexDirection: 'row' }}>
-            <View style={{ flex: 1, borderRightWidth: 0.8, borderColor: color }} />
-            <View style={{ flex: 1 }} />
-          </View>
-        </View>
-      </View>
-    );
-  }
-  if (variant === 'conversor') {
-    return (
-      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-          <View style={{ width: size * 0.5, height: 1.5, backgroundColor: color, borderRadius: 1 }} />
-          <View style={{ width: 0, height: 0, borderTopWidth: 3.5, borderBottomWidth: 3.5, borderLeftWidth: 5, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderLeftColor: color }} />
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-          <View style={{ width: 0, height: 0, borderTopWidth: 3.5, borderBottomWidth: 3.5, borderRightWidth: 5, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: color }} />
-          <View style={{ width: size * 0.5, height: 1.5, backgroundColor: color, borderRadius: 1 }} />
-        </View>
-      </View>
-    );
-  }
-  // billetes
+  const iconMap: Record<string, string> = {
+    calc: 'calculator',
+    conversor: 'swap-horizontal',
+    billets: 'wallet',
+  };
+
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ width: size * 0.85, height: size * 0.55, borderWidth: 1.8, borderColor: color, borderRadius: 4, alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{ width: size * 0.3, height: size * 0.3, borderRadius: size * 0.15, borderWidth: 1.5, borderColor: color }} />
-      </View>
+      <Ionicons 
+        name={iconMap[variant] as any} 
+        size={size * 0.7} 
+        color={color} 
+      />
     </View>
   );
 }
@@ -65,7 +43,11 @@ function ThemeToggle() {
       ]}
       activeOpacity={0.7}
     >
-      <Text style={styles.themeBtnText}>{isDark ? '☀️' : '🌙'}</Text>
+      <Ionicons 
+        name={isDark ? 'sunny' : 'moon'} 
+        size={18} 
+        color={colors.textSecondary} 
+      />
     </TouchableOpacity>
   );
 }
@@ -81,44 +63,47 @@ function InnerLayout() {
           headerStyle: { backgroundColor: colors.bg },
           headerShadowVisible: false,
           headerTintColor: colors.textPrimary,
+          headerTitleStyle: {
+            fontWeight: '600',
+            fontSize: 17,
+          },
           headerRight: () => <ThemeToggle />,
           headerRightContainerStyle: { paddingRight: 16, paddingBottom: 4 },
           tabBarStyle: {
             backgroundColor: colors.tabBar,
             borderTopColor: colors.tabBorder,
             borderTopWidth: StyleSheet.hairlineWidth,
-            height: 64,
-            paddingBottom: 10,
-            paddingTop: 6,
+            height: 84,
+            paddingBottom: 28,
+            paddingTop: 8,
           },
           tabBarActiveTintColor: colors.tabActive,
           tabBarInactiveTintColor: colors.tabInactive,
           tabBarLabelStyle: {
             fontSize: 10,
-            fontWeight: '600',
-            letterSpacing: 0.3,
+            fontWeight: '500',
           },
         }}
       >
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Calcular',
+            title: 'Calculadora',
             tabBarIcon: ({ color, size }) => <TabIcon color={color} size={size} variant="calc" />,
           }}
         />
         <Tabs.Screen
           name="conversor"
           options={{
-            title: 'Conversor',
+            title: 'Cambio',
             tabBarIcon: ({ color, size }) => <TabIcon color={color} size={size} variant="conversor" />,
           }}
         />
         <Tabs.Screen
           name="billetes"
           options={{
-            title: 'Billetes',
-            tabBarIcon: ({ color, size }) => <TabIcon color={color} size={size} variant="billetes" />,
+            title: 'Efectivo',
+            tabBarIcon: ({ color, size }) => <TabIcon color={color} size={size} variant="billets" />,
           }}
         />
       </Tabs>
@@ -142,8 +127,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-  },
-  themeBtnText: {
-    fontSize: 16,
   },
 });
