@@ -243,8 +243,7 @@ export default function Calculadora() {
               const isEq = btn.type === 'eq';
               const shadow = isEq ? shadows.accent(colors.accent) : shadows.sm;
               
-              const isWide = btn.type === 'digit' && ri === 6 && bi === 0;
-              const btnWidth = isWide ? BTN_SIZE * 2 + BTN_GAP : BTN_SIZE;
+              const btnWidth = BTN_SIZE;
 
               return (
                 <TouchableOpacity
