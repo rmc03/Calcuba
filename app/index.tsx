@@ -25,7 +25,7 @@ const _maxBtnHeight = Math.max((SCREEN_HEIGHT - 320) / 7, 30);
 const BTN_SIZE = Math.min(_rawBtnSize, _maxBtnHeight / 0.88);
 const BTN_HEIGHT = BTN_SIZE * 0.88;
 
-type BtnType = 'digit' | 'op' | 'eq' | 'ac' | 'sign' | 'pct' | 'sci' | 'backspace';
+type BtnType = 'digit' | 'op' | 'eq' | 'ac' | 'sign' | 'pct' | 'sci' | 'backspace' | 'toggle_sci';
 
 interface CalcBtn {
   label: string;
@@ -33,48 +33,51 @@ interface CalcBtn {
   value?: string;
 }
 
-const BUTTONS: CalcBtn[][] = [
+const BUTTONS_SCI: CalcBtn[][] = [
   [
     { label: 'sin', type: 'sci', value: 'sin' },
     { label: 'cos', type: 'sci', value: 'cos' },
     { label: 'tan', type: 'sci', value: 'tan' },
-    { label: '', type: 'backspace', value: 'backspace' },
+    { label: 'log', type: 'sci', value: 'log' },
   ],
   [
-    { label: 'log', type: 'sci', value: 'log' },
     { label: 'ln', type: 'sci', value: 'ln' },
     { label: '√', type: 'sci', value: 'sqrt' },
     { label: 'x²', type: 'sci', value: 'sq' },
-  ],
-  [
     { label: '¹/x', type: 'sci', value: 'inv' },
-    { label: 'AC', type: 'ac' },
-    { label: '+/-', type: 'sign' },
+  ],
+];
+
+const BUTTONS_MAIN: CalcBtn[][] = [
+  [
+    { label: 'C', type: 'ac' },
+    { label: '', type: 'backspace', value: 'backspace' },
     { label: '%', type: 'pct' },
+    { label: '÷', type: 'op', value: '/' },
   ],
   [
     { label: '7', type: 'digit' },
     { label: '8', type: 'digit' },
     { label: '9', type: 'digit' },
-    { label: '÷', type: 'op', value: '/' },
+    { label: '×', type: 'op', value: '*' },
   ],
   [
     { label: '4', type: 'digit' },
     { label: '5', type: 'digit' },
     { label: '6', type: 'digit' },
-    { label: '×', type: 'op', value: '*' },
+    { label: '−', type: 'op', value: '-' },
   ],
   [
     { label: '1', type: 'digit' },
     { label: '2', type: 'digit' },
     { label: '3', type: 'digit' },
-    { label: '−', type: 'op', value: '-' },
+    { label: '+', type: 'op', value: '+' },
   ],
   [
+    { label: '', type: 'toggle_sci' },
     { label: '0', type: 'digit' },
     { label: '.', type: 'digit' },
     { label: '=', type: 'eq' },
-    { label: '+', type: 'op', value: '+' },
   ],
 ];
 
@@ -106,6 +109,13 @@ export default function Calculadora() {
   const [prev, setPrev] = useState<number | null>(null);
   const [waitOp, setWaitOp] = useState(false);
   const [hasResult, setHasResult] = useState(false);
+  const [showSci, setShowSci] = useState(false);
+
+  // Dynamic grid setup inside component since rows change
+  const BUTTONS = useMemo(() => showSci ? [...BUTTONS_SCI, ...BUTTONS_MAIN] : BUTTONS_MAIN, [showSci]);
+  const _maxBtnHeight = Math.max((SCREEN_HEIGHT - 320) / BUTTONS.length, 30);
+  const BTN_SIZE = Math.min(_rawBtnSize, _maxBtnHeight / 0.88);
+  const BTN_HEIGHT = BTN_SIZE * 0.88;
 
   const reset = () => {
     setCur('0'); setExpr(''); setOp(null);
@@ -194,26 +204,20 @@ export default function Calculadora() {
       case 'pct': percent(); break;
       case 'sci': applySci(btn.value!); break;
       case 'backspace': backspace(); break;
+      case 'toggle_sci': setShowSci((s) => !s); break;
     }
   };
 
   const getBtnBg = (btn: CalcBtn) => {
-    switch (btn.type) {
-      case 'eq': return colors.btnEq;
-      case 'ac': return colors.btnAc;
-      case 'op': return colors.btnOp;
-      case 'sci': return colors.btnSci;
-      case 'sign': case 'pct': return colors.btnMod;
-      case 'backspace': return colors.btnDigit;
-      default: return colors.btnDigit;
-    }
+    if (btn.type === 'eq') return colors.amber;
+    return colors.bgCard; // All other buttons share the card background in MIUI
   };
 
   const getBtnTextColor = (btn: CalcBtn) => {
-    if (['ac', 'sign', 'pct'].includes(btn.type)) return '#000000';
-    if (['op', 'eq'].includes(btn.type)) return '#ffffff';
-    if (btn.type === 'backspace') return colors.amber;
-    return colors.textPrimary;
+    if (btn.type === 'eq') return '#ffffff';
+    if (['op', 'ac', 'pct', 'backspace', 'toggle_sci'].includes(btn.type)) return colors.amber; // Orange actions
+    if (btn.type === 'sci') return colors.textSecondary; // Dimmer scientific text
+    return colors.textPrimary; // White digits
   };
 
   const isDigitBtn = (btn: CalcBtn) => btn.type === 'digit';
@@ -243,10 +247,7 @@ export default function Calculadora() {
         {BUTTONS.map((row, ri) => (
           <View key={ri} style={styles.row}>
             {row.map((btn, bi) => {
-              const isEq = btn.type === 'eq';
-              const shadow = isEq ? shadows.accent(colors.accent) : shadows.sm;
-              
-              const btnWidth = BTN_SIZE;
+              const btnWidth = BTN_SIZE; // All button widths are equal
 
               return (
                 <TouchableOpacity
@@ -258,7 +259,7 @@ export default function Calculadora() {
                       width: btnWidth, 
                       height: BTN_HEIGHT,
                     },
-                    shadow,
+                    // NO SHADOW for flat look
                   ]}
                   onPress={() => handlePress(btn)}
                   activeOpacity={0.65}
@@ -266,8 +267,15 @@ export default function Calculadora() {
                   {btn.type === 'backspace' ? (
                     <Ionicons 
                       name="backspace-outline" 
-                      size={22} 
+                      size={BTN_SIZE * 0.35} 
                       color={getBtnTextColor(btn)} 
+                    />
+                  ) : btn.type === 'toggle_sci' ? (
+                    <Ionicons 
+                      name="swap-vertical-outline" 
+                      size={BTN_SIZE * 0.4} 
+                      color={getBtnTextColor(btn)} 
+                      style={{ transform: [{ rotate: '45deg' }] }}
                     />
                   ) : (
                     <Text
@@ -341,7 +349,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   btn: {
-    borderRadius: radii.md,
+    borderRadius: radii.xl, // Squarcle / prominent rounded corners
     alignItems: 'center',
     justifyContent: 'center',
   },
