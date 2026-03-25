@@ -31,27 +31,6 @@ function TabIcon({
   );
 }
 
-function ThemeToggle() {
-  const { isDark, toggle, colors } = useTheme();
-  return (
-    <TouchableOpacity
-      onPress={toggle}
-      style={[
-        styles.themeBtn,
-        { backgroundColor: colors.bgCard, borderColor: colors.border },
-        shadows.sm,
-      ]}
-      activeOpacity={0.7}
-    >
-      <Ionicons 
-        name={isDark ? 'sunny' : 'moon'} 
-        size={18} 
-        color={colors.textSecondary} 
-      />
-    </TouchableOpacity>
-  );
-}
-
 function InnerLayout() {
   const { colors, isDark } = useTheme();
   return (
@@ -67,8 +46,6 @@ function InnerLayout() {
             fontWeight: '600',
             fontSize: 17,
           },
-          headerRight: () => <ThemeToggle />,
-          headerRightContainerStyle: { paddingRight: 16, paddingBottom: 4 },
           tabBarStyle: {
             backgroundColor: colors.tabBar,
             borderTopColor: colors.tabBorder,
@@ -119,13 +96,4 @@ export default function Layout() {
   );
 }
 
-const styles = StyleSheet.create({
-  themeBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: radii.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-});
+const styles = StyleSheet.create({});

@@ -19,7 +19,10 @@ const CALC_WIDTH = Math.min(SCREEN_WIDTH, MAX_CALC_WIDTH);
 
 const GRID_PADDING = IS_DESKTOP ? 20 : 14;
 const BTN_GAP = IS_DESKTOP ? 12 : 10;
-const BTN_SIZE = (CALC_WIDTH - GRID_PADDING * 2 - BTN_GAP * 3) / 4;
+const _rawBtnSize = (CALC_WIDTH - GRID_PADDING * 2 - BTN_GAP * 3) / 4;
+// Fit grid within available height (approx. SCREEN_HEIGHT - 320px for margins, display, and tabs)
+const _maxBtnHeight = Math.max((SCREEN_HEIGHT - 320) / 7, 30);
+const BTN_SIZE = Math.min(_rawBtnSize, _maxBtnHeight / 0.88);
 const BTN_HEIGHT = BTN_SIZE * 0.88;
 
 type BtnType = 'digit' | 'op' | 'eq' | 'ac' | 'sign' | 'pct' | 'sci' | 'backspace';
@@ -272,7 +275,7 @@ export default function Calculadora() {
                         styles.btnText,
                         {
                           color: getBtnTextColor(btn),
-                          fontSize: btn.type === 'sci' ? 13 : 22,
+                          fontSize: btn.type === 'sci' ? (BTN_SIZE < 60 ? 11 : 13) : (BTN_SIZE < 60 ? 18 : 22),
                           fontFamily: btn.type === 'sci' ? typography.mono : typography.sans,
                           fontWeight: isDigitBtn(btn) ? '400' : isFuncBtn(btn) ? '500' : '500',
                         },
