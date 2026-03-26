@@ -20,9 +20,10 @@ interface MenuItem {
 }
 
 const MENU_ITEMS: MenuItem[] = [
-  { id: 'divisas',      title: 'Divisas',           icon: 'cash-outline' },
-  { id: 'longitud',     title: 'Longitud',          icon: 'resize-outline' },
-  { id: 'masa',         title: 'Masa',              icon: 'bag-handle-outline' },
+  { id: 'divisas',           title: 'Divisas\n(Cuba)',    icon: 'cash-outline' },
+  { id: 'divisasoficiales',  title: 'Divisas\n(Mundo)',   icon: 'earth-outline' },
+  { id: 'longitud',          title: 'Longitud',           icon: 'resize-outline' },
+  { id: 'masa',              title: 'Masa',               icon: 'bag-handle-outline' },
   { id: 'area',         title: 'Área',              icon: 'grid-outline' },
   { id: 'tiempo',       title: 'Tiempo',            icon: 'time-outline' },
   { id: 'finanzas',     title: 'Finanzas',          icon: 'trending-up-outline' },
