@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,15 @@ import {
   SafeAreaView,
   ScrollView,
   Dimensions,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import SubScreenHeader from './SubScreenHeader';
 import { useTheme } from '../context/ThemeContext';
 import { typography, radii, spacing } from '../constants/theme';
 
-const { width: SW, height: SH } = Dimensions.get('window');
+const { width: SW } = Dimensions.get('window');
 const GRID_PAD = 14;
 const BTN_GAP = 10;
 const BTN_W = (Math.min(SW, 400) - GRID_PAD * 2 - BTN_GAP * 3) / 4;
@@ -22,6 +24,8 @@ const BTN_H = BTN_W * 0.88;
 export interface UnitDef {
   id: string;
   label: string;
+  /** Short symbol shown in the dropdown subtitle, e.g. "km²" */
+  symbol?: string;
   /** Factor to convert 1 of this unit into the base unit. */
   toBase: number;
 }
@@ -29,7 +33,6 @@ export interface UnitDef {
 interface Props {
   title: string;
   units: UnitDef[];
-  /** If true, temperature-style conversion (uses custom convert fn). */
   customConvert?: (value: number, fromId: string, toId: string) => number;
 }
 
@@ -38,6 +41,7 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
   const [fromIdx, setFromIdx] = useState(0);
   const [toIdx, setToIdx] = useState(1);
   const [input, setInput] = useState('1');
+  const [picker, setPicker] = useState<'from' | 'to' | null>(null);
 
   const fromUnit = units[fromIdx];
   const toUnit = units[toIdx];
@@ -68,8 +72,13 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
     setToIdx(f);
   };
 
-  const cycleFrom = () => setFromIdx((fromIdx + 1) % units.length);
-  const cycleTo = () => setToIdx((toIdx + 1) % units.length);
+  const selectUnit = (idx: number) => {
+    if (picker === 'from') setFromIdx(idx);
+    else setToIdx(idx);
+    setPicker(null);
+  };
+
+  const activeIdx = picker === 'from' ? fromIdx : toIdx;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -77,9 +86,12 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
 
       {/* Unit rows */}
       <View style={styles.unitSection}>
-        <TouchableOpacity style={styles.unitRow} onPress={cycleFrom} activeOpacity={0.6}>
+        <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('from')} activeOpacity={0.6}>
           <View style={styles.unitLeft}>
             <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{fromUnit.label}</Text>
+            {fromUnit.symbol && (
+              <Text style={[styles.unitSymbol, { color: colors.textSecondary }]}> {fromUnit.symbol}</Text>
+            )}
             <Ionicons name="chevron-expand-outline" size={16} color={colors.textSecondary} style={{ marginLeft: 6 }} />
           </View>
           <Text style={[styles.unitValue, { color: colors.amber }]}>{input || '0'}</Text>
@@ -87,9 +99,12 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
 
         <View style={[styles.separator, { backgroundColor: colors.border }]} />
 
-        <TouchableOpacity style={styles.unitRow} onPress={cycleTo} activeOpacity={0.6}>
+        <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('to')} activeOpacity={0.6}>
           <View style={styles.unitLeft}>
             <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{toUnit.label}</Text>
+            {toUnit.symbol && (
+              <Text style={[styles.unitSymbol, { color: colors.textSecondary }]}> {toUnit.symbol}</Text>
+            )}
             <Ionicons name="chevron-expand-outline" size={16} color={colors.textSecondary} style={{ marginLeft: 6 }} />
           </View>
           <Text style={[styles.unitValue, { color: colors.textPrimary }]}>{result}</Text>
@@ -131,6 +146,50 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
           </View>
         ))}
       </View>
+
+      {/* Dropdown picker overlay */}
+      <Modal visible={picker !== null} transparent animationType="fade">
+        <Pressable style={styles.overlay} onPress={() => setPicker(null)}>
+          <View style={[styles.dropdown, { backgroundColor: colors.bgCard }]}>
+            <ScrollView bounces={false} style={styles.dropdownScroll}>
+              {units.map((u, i) => {
+                const isSelected = i === activeIdx;
+                return (
+                  <TouchableOpacity
+                    key={u.id}
+                    style={[
+                      styles.dropdownItem,
+                      isSelected && { backgroundColor: colors.amber },
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => selectUnit(i)}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[
+                        styles.dropdownLabel,
+                        { color: isSelected ? '#fff' : colors.textPrimary },
+                      ]}>
+                        {u.label}
+                      </Text>
+                      {u.symbol && (
+                        <Text style={[
+                          styles.dropdownSymbol,
+                          { color: isSelected ? 'rgba(255,255,255,0.7)' : colors.textSecondary },
+                        ]}>
+                          {u.symbol}
+                        </Text>
+                      )}
+                    </View>
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={22} color="#fff" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -184,12 +243,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 18,
   },
-  unitLeft: { flexDirection: 'row', alignItems: 'center' },
+  unitLeft: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
   unitLabel: { fontSize: 17, fontFamily: typography.sans, fontWeight: '400' },
-  unitValue: { fontSize: 28, fontFamily: typography.sans, fontWeight: '300' },
+  unitSymbol: { fontSize: 14, fontFamily: typography.mono },
+  unitValue: { fontSize: 28, fontFamily: typography.sans, fontWeight: '300', marginLeft: 12 },
   separator: { height: StyleSheet.hairlineWidth },
   grid: { padding: GRID_PAD, gap: BTN_GAP },
   row: { flexDirection: 'row', gap: BTN_GAP, justifyContent: 'center' },
   btn: { borderRadius: radii.xl, alignItems: 'center', justifyContent: 'center' },
   btnText: { fontFamily: typography.sans, fontWeight: '400', includeFontPadding: false },
+
+  // Dropdown overlay
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-start',
+    paddingTop: 80,
+    paddingHorizontal: 24,
+  },
+  dropdown: {
+    borderRadius: radii.xl,
+    maxHeight: 420,
+    overflow: 'hidden',
+  },
+  dropdownScroll: {
+    paddingVertical: 8,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  dropdownLabel: {
+    fontSize: 16,
+    fontFamily: typography.sans,
+    fontWeight: '500',
+  },
+  dropdownSymbol: {
+    fontSize: 13,
+    fontFamily: typography.mono,
+    marginTop: 2,
+  },
 });
