@@ -83,15 +83,17 @@ function formatTime(iso: string): string {
 // ─── FETCH ───────────────────────────────────────────────────
 async function fetchFromMdiv(): Promise<{ rates?: Rates; error?: string }> {
   try {
-    const res = await fetch(MDIV_API, {
-      headers: {
-        'Accept': 'application/json, text/plain, */*',
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-      },
-    });
+    // Usamos allorigins como proxy CORS porque mdiv.pro bloquea peticiones desde clientes web estables
+    const PROXY_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(MDIV_API)}`;
+    
+    const res = await fetch(PROXY_URL);
     if (!res.ok) return { error: `HTTP ${res.status}` };
-    const json = await res.json();
-    if (!json?.success || !json?.data?.rates) return { error: 'Formato inválido' };
+    
+    const wrapper = await res.json();
+    if (!wrapper.contents) return { error: 'Proxy vacío' };
+
+    const json = JSON.parse(wrapper.contents);
+    if (!json?.success || !json?.data?.rates) return { error: 'Formato de datos inválido' };
 
     const r = json.data.rates;
     const usd = parseFloat(r.avgUsdOverallRate);
@@ -99,7 +101,7 @@ async function fetchFromMdiv(): Promise<{ rates?: Rates; error?: string }> {
     const mlc = parseFloat(r.avgMlcOverallRate);
     const ts = json.data.timestamp;
 
-    if (isNaN(usd) || usd <= 0) return { error: 'Tasas inválidas' };
+    if (isNaN(usd) || usd <= 0) return { error: 'Tasas inválidas recibidas' };
 
     return {
       rates: {
@@ -111,7 +113,7 @@ async function fetchFromMdiv(): Promise<{ rates?: Rates; error?: string }> {
       }
     };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Error de red';
+    const msg = err instanceof Error ? err.message : 'Error de red / CORS';
     return { error: msg };
   }
 }
