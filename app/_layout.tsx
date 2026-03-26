@@ -91,6 +91,7 @@ function InnerLayout() {
           name="conversor"
           options={{
             title: 'Cambio',
+            headerShown: false,
             tabBarIcon: ({ color, size }) => <TabIcon color={color} size={size} variant="conversor" />,
           }}
         />

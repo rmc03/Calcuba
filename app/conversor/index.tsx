@@ -8,8 +8,9 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../context/ThemeContext';
-import { typography } from '../constants/theme';
+import { useRouter } from 'expo-router';
+import { useTheme } from '../../context/ThemeContext';
+import { typography } from '../../constants/theme';
 
 interface MenuItem {
   id: string;
@@ -34,10 +35,10 @@ const MENU_ITEMS: MenuItem[] = [
   { id: 'imc',          title: 'IMC',               icon: 'body-outline' },
 ];
 
-export default function Conversor() {
+export default function ConversorIndex() {
   const { colors } = useTheme();
+  const router = useRouter();
 
-  // Build rows of 3
   const rows: MenuItem[][] = [];
   for (let i = 0; i < MENU_ITEMS.length; i += 3) {
     rows.push(MENU_ITEMS.slice(i, i + 3));
@@ -53,6 +54,7 @@ export default function Conversor() {
                 key={item.id}
                 style={styles.item}
                 activeOpacity={0.6}
+                onPress={() => router.push(`/conversor/${item.id}` as any)}
               >
                 <Ionicons name={item.icon} size={32} color={colors.textPrimary} />
                 <Text style={[styles.label, { color: colors.textSecondary }]}>
@@ -60,7 +62,6 @@ export default function Conversor() {
                 </Text>
               </TouchableOpacity>
             ))}
-            {/* Fill empty cells in the last row to keep alignment */}
             {row.length < 3 && Array.from({ length: 3 - row.length }).map((_, i) => (
               <View key={`empty-${i}`} style={styles.item} />
             ))}
@@ -72,12 +73,8 @@ export default function Conversor() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scroll: {
-    paddingVertical: 20,
-  },
+  container: { flex: 1 },
+  scroll: { paddingVertical: 20 },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-evenly',
