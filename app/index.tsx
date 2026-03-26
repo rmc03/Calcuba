@@ -229,7 +229,6 @@ export default function Calculadora() {
       <TopNavBar />
       <View style={[IS_DESKTOP && styles.desktopWrapper, { flex: 1 }]}>
         <View style={[styles.display, { backgroundColor: colors.bgDeep }]}>
-          <Text style={[styles.appLabel, { color: colors.border }]}>CALCUBA</Text>
           <Text style={[styles.exprText, { color: colors.textSecondary }]} numberOfLines={1}>
             {expr || ' '}
           </Text>
@@ -289,6 +288,7 @@ export default function Calculadora() {
                           fontFamily: btn.type === 'sci' ? typography.mono : typography.sans,
                           fontWeight: isDigitBtn(btn) ? '400' : isFuncBtn(btn) ? '500' : '500',
                         },
+                        isDigitBtn(btn) && { fontSize: IS_DESKTOP ? 28 : 26 }, // Make digits larger
                       ]}
                     >
                       {btn.label}
@@ -316,30 +316,24 @@ const styles = StyleSheet.create({
   display: {
     flex: 1,
     justifyContent: 'flex-end',
-    paddingHorizontal: IS_DESKTOP ? spacing.xxl : spacing.xl,
-    paddingBottom: spacing.lg,
-  },
-  appLabel: {
-    fontSize: 9,
-    letterSpacing: 6,
-    fontFamily: typography.mono,
-    textAlign: 'right',
-    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
   },
   exprText: {
-    fontSize: IS_DESKTOP ? 20 : 17,
+    fontSize: IS_DESKTOP ? 24 : 22, // Bigger history font
     fontFamily: typography.mono,
     textAlign: 'right',
-    marginBottom: 2,
+    marginBottom: spacing.sm, // More space before current number
   },
   curText: {
-    fontSize: IS_DESKTOP ? 84 : 72,
+    fontSize: IS_DESKTOP ? 96 : 84, // Slightly larger huge number
     fontFamily: typography.sans,
-    fontWeight: Platform.select({ ios: '200', android: '100', default: '200' }),
+    fontWeight: Platform.select({ ios: '200', android: '300', default: '200' }), // '100' is often too thin on Android
     textAlign: 'right',
     letterSpacing: -2,
+    marginBottom: -8, // Tweak bottom baseline
   },
-  divider: { height: StyleSheet.hairlineWidth, marginHorizontal: GRID_PADDING },
+  divider: { height: StyleSheet.hairlineWidth, marginHorizontal: spacing.lg }, // Consistent margin
   grid: {
     padding: GRID_PADDING,
     paddingTop: spacing.md,
