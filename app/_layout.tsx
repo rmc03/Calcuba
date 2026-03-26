@@ -76,23 +76,4 @@ export default function Layout() {
   );
 }
 
-const styles = StyleSheet.create({
-  topNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  navLinks: {
-    flexDirection: 'row',
-    gap: spacing.xl,
-    justifyContent: 'center',
-  },
-  navText: {
-    fontSize: 18,
-  },
-  navIconBtn: {
-    padding: spacing.xs,
-  },
-});
+const styles = StyleSheet.create({});
