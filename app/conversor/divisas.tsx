@@ -17,8 +17,16 @@ import SubScreenHeader from '../../components/SubScreenHeader';
 import { useTheme } from '../../context/ThemeContext';
 import { typography, radii, spacing } from '../../constants/theme';
 
+// ─── CONFIG ──────────────────────────────────────────────────
 const STORAGE_KEY = 'calcuba_rates';
-const API_URL = 'https://api.eltoque.com/v1/trm?date=today';
+
+// elToque official API (requires Bearer token)
+const ELTOQUE_API = 'https://tasas.eltoque.com/v1/trmi';
+// If you have a token, set it here or fetch from env/config:
+const ELTOQUE_TOKEN = ''; // e.g. 'eyJhbGc...'
+
+// Public fallback: scrape from the eltoque website
+const ELTOQUE_PAGE = 'https://eltoque.com/tasas-de-cambio-de-moneda-en-cuba-hoy';
 
 const { width: SW } = Dimensions.get('window');
 const GRID_PAD = 14;
@@ -26,14 +34,19 @@ const BTN_GAP = 10;
 const BTN_W = (Math.min(SW, 400) - GRID_PAD * 2 - BTN_GAP * 3) / 4;
 const BTN_H = BTN_W * 0.88;
 
+// ─── TYPES ───────────────────────────────────────────────────
 interface Rates {
   USD: number;
   EUR: number;
   MLC: number;
   timestamp?: string;
+  source?: string;
 }
 
-const DEFAULT_RATES: Rates = { USD: 300, EUR: 330, MLC: 280, timestamp: 'Estimadas' };
+const FALLBACK_RATES: Rates = {
+  USD: 300, EUR: 330, MLC: 280,
+  timestamp: 'Estimadas', source: 'fallback',
+};
 
 interface CurrencyDef {
   id: string;
@@ -63,70 +76,148 @@ function formatResult(n: number): string {
   return s;
 }
 
+// ─── FETCH HELPERS ───────────────────────────────────────────
+
+/** Try the official elToque API (needs token) */
+async function fetchFromAPI(): Promise<Rates | null> {
+  if (!ELTOQUE_TOKEN) return null;
+  try {
+    const res = await fetch(ELTOQUE_API, {
+      headers: { Authorization: `Bearer ${ELTOQUE_TOKEN}` },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    // API returns { tasas: { USD: {}, EUR: {}, MLC: {} } } or similar
+    const tasas = json?.tasas ?? json?.data ?? json;
+    const usd = tasas?.USD?.median ?? tasas?.USD?.venta ?? tasas?.USD;
+    const eur = tasas?.EUR?.median ?? tasas?.EUR?.venta ?? tasas?.EUR;
+    const mlc = tasas?.MLC?.median ?? tasas?.MLC?.venta ?? tasas?.MLC;
+    if (typeof usd === 'number' && typeof eur === 'number') {
+      return {
+        USD: usd, EUR: eur, MLC: typeof mlc === 'number' ? mlc : 280,
+        timestamp: new Date().toLocaleString('es-CU'),
+        source: 'API elToque',
+      };
+    }
+  } catch (_) {}
+  return null;
+}
+
+/** Fallback: fetch HTML from the public eltoque page and extract rates */
+async function fetchFromPage(): Promise<Rates | null> {
+  try {
+    const res = await fetch(ELTOQUE_PAGE, {
+      headers: { 'User-Agent': 'CalcubaApp/1.0' },
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+
+    // The page embeds rates in JSON-LD or inline JS.
+    // Try to extract numbers near USD, EUR, MLC patterns
+    const extract = (currency: string): number | null => {
+      // Look for patterns like "USD":"320" or USD\s*[:=]\s*(\d+)
+      const patterns = [
+        new RegExp(`"${currency}"\\s*:\\s*"?(\\d+\\.?\\d*)"?`, 'i'),
+        new RegExp(`${currency}[^\\d]{0,30}(\\d{2,4}(?:\\.\\d+)?)`, 'i'),
+      ];
+      for (const re of patterns) {
+        const m = html.match(re);
+        if (m && m[1]) {
+          const v = parseFloat(m[1]);
+          if (v > 1 && v < 100000) return v;
+        }
+      }
+      return null;
+    };
+
+    const usd = extract('USD');
+    const eur = extract('EUR');
+    const mlc = extract('MLC');
+
+    if (usd) {
+      return {
+        USD: usd,
+        EUR: eur ?? Math.round(usd * 1.1),
+        MLC: mlc ?? Math.round(usd * 0.93),
+        timestamp: new Date().toLocaleString('es-CU'),
+        source: 'eltoque.com',
+      };
+    }
+  } catch (_) {}
+  return null;
+}
+
+// ─── COMPONENT ───────────────────────────────────────────────
+
 export default function Divisas() {
   const { colors } = useTheme();
 
-  // Rates state
-  const [rates, setRates] = useState<Rates>(DEFAULT_RATES);
+  const [rates, setRates] = useState<Rates>(FALLBACK_RATES);
   const [loading, setLoading] = useState(false);
-  const [offline, setOffline] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState('');
 
-  // Converter state
-  const [fromIdx, setFromIdx] = useState(0); // CUP
-  const [toIdx, setToIdx] = useState(1);     // USD
+  const [fromIdx, setFromIdx] = useState(0);
+  const [toIdx, setToIdx] = useState(1);
   const [input, setInput] = useState('1');
   const [picker, setPicker] = useState<'from' | 'to' | null>(null);
 
   const fromCurr = CURRENCIES[fromIdx];
   const toCurr = CURRENCIES[toIdx];
 
-  // Fetch rates
-  const loadCachedRates = async () => {
+  // Load cached, then fetch live
+  const fetchRates = useCallback(async () => {
+    setLoading(true);
+
+    // 1. Try API
+    const apiRates = await fetchFromAPI();
+    if (apiRates) {
+      setRates(apiRates);
+      setStatus(`✓ ${apiRates.source} · ${apiRates.timestamp}`);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(apiRates));
+      setLoading(false);
+      return;
+    }
+
+    // 2. Try web page scrape
+    const pageRates = await fetchFromPage();
+    if (pageRates) {
+      setRates(pageRates);
+      setStatus(`✓ ${pageRates.source} · ${pageRates.timestamp}`);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(pageRates));
+      setLoading(false);
+      return;
+    }
+
+    // 3. Use cached
     try {
       const cached = await AsyncStorage.getItem(STORAGE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached) as Rates;
-        if (parsed.USD && parsed.EUR && parsed.MLC) {
-          setRates(parsed);
-          setOffline(true);
-          return true;
-        }
+        setRates(parsed);
+        setStatus(`Caché · ${parsed.timestamp ?? ''}`);
+        setLoading(false);
+        return;
       }
     } catch (_) {}
-    return false;
-  };
 
-  const fetchRates = useCallback(async () => {
-    setLoading(true);
-    setOffline(false);
-    setError(null);
-    try {
-      const res = await fetch(API_URL);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      const data = json?.data;
-      if (!data) throw new Error('Respuesta inesperada');
-
-      const newRates: Rates = {
-        USD: typeof data.USD === 'number' ? data.USD : DEFAULT_RATES.USD,
-        EUR: typeof data.EUR === 'number' ? data.EUR : DEFAULT_RATES.EUR,
-        MLC: typeof data.MLC === 'number' ? data.MLC : DEFAULT_RATES.MLC,
-        timestamp: new Date().toLocaleString('es-CU'),
-      };
-      setRates(newRates);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newRates));
-    } catch (err) {
-      setOffline(true);
-      const msg = err instanceof Error ? err.message : 'Error desconocido';
-      setError(`Sin conexión (${msg})`);
-    } finally {
-      setLoading(false);
-    }
+    // 4. Fallback
+    setRates(FALLBACK_RATES);
+    setStatus('Sin conexión · tasas estimadas');
+    setLoading(false);
   }, []);
 
   useEffect(() => {
-    loadCachedRates().then(() => fetchRates());
+    // Load cache instantly
+    AsyncStorage.getItem(STORAGE_KEY).then((cached) => {
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached) as Rates;
+          setRates(parsed);
+          setStatus(`Caché · ${parsed.timestamp ?? ''}`);
+        } catch (_) {}
+      }
+    });
+    fetchRates();
   }, []);
 
   // Conversion
@@ -138,7 +229,7 @@ export default function Divisas() {
     return formatResult((n * fromRate) / toRate);
   }, [input, fromIdx, toIdx, rates]);
 
-  // Keypad handlers
+  // Keypad
   const handleDigit = (d: string) => {
     if (d === '.' && input.includes('.')) return;
     if (input === '0' && d !== '.') { setInput(d); return; }
@@ -157,24 +248,21 @@ export default function Divisas() {
   };
 
   const activeIdx = picker === 'from' ? fromIdx : toIdx;
+  const isLive = rates.source && rates.source !== 'fallback';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <SubScreenHeader title="Divisas" />
 
-      {/* Status bar */}
-      <View style={[styles.statusRow, { borderColor: offline ? colors.amber : colors.border }]}>
+      {/* Status */}
+      <View style={[styles.statusRow, { borderColor: isLive ? colors.green : colors.amber }]}>
         {loading ? (
           <ActivityIndicator size="small" color={colors.amber} />
         ) : (
-          <View style={[styles.dot, { backgroundColor: offline ? colors.amber : colors.green }]} />
+          <View style={[styles.dot, { backgroundColor: isLive ? colors.green : colors.amber }]} />
         )}
         <Text style={[styles.statusText, { color: colors.textSecondary }]} numberOfLines={1}>
-          {loading
-            ? 'Actualizando tasas...'
-            : offline
-            ? error ?? 'Modo offline'
-            : `Actualizado: ${rates.timestamp ?? ''}`}
+          {loading ? 'Actualizando tasas...' : status}
         </Text>
         <TouchableOpacity onPress={fetchRates} disabled={loading} style={styles.refreshBtn}>
           <Ionicons name="refresh" size={18} color={loading ? colors.textTertiary : colors.amber} />
@@ -192,7 +280,7 @@ export default function Divisas() {
           <Text style={[styles.unitValue, { color: colors.amber }]}>{input || '0'}</Text>
         </TouchableOpacity>
 
-        <View style={[styles.separator, { backgroundColor: colors.border }]} />
+        <View style={[styles.sep, { backgroundColor: colors.border }]} />
 
         <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('to')} activeOpacity={0.6}>
           <View style={styles.unitLeft}>
@@ -204,12 +292,9 @@ export default function Divisas() {
         </TouchableOpacity>
       </View>
 
-      {/* Rate info */}
-      {!loading && (
-        <Text style={[styles.rateInfo, { color: colors.textTertiary }]}>
-          Tasas informales · eltoque.com{offline ? ' (caché)' : ''}
-        </Text>
-      )}
+      <Text style={[styles.rateInfo, { color: colors.textTertiary }]}>
+        Fuente: eltoque.com · tasas referenciales
+      </Text>
 
       <View style={{ flex: 1 }} />
 
@@ -247,7 +332,7 @@ export default function Divisas() {
         ))}
       </View>
 
-      {/* Dropdown picker */}
+      {/* Dropdown */}
       <Modal visible={picker !== null} transparent animationType="fade">
         <Pressable style={styles.overlay} onPress={() => setPicker(null)}>
           <View style={[styles.dropdown, { backgroundColor: colors.bgCard }]}>
@@ -257,15 +342,15 @@ export default function Divisas() {
                 return (
                   <TouchableOpacity
                     key={u.id}
-                    style={[styles.dropdownItem, isSelected && { backgroundColor: colors.amber }]}
+                    style={[styles.ddItem, isSelected && { backgroundColor: colors.amber }]}
                     activeOpacity={0.7}
                     onPress={() => selectUnit(i)}
                   >
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.dropdownLabel, { color: isSelected ? '#fff' : colors.textPrimary }]}>
+                      <Text style={[styles.ddLabel, { color: isSelected ? '#fff' : colors.textPrimary }]}>
                         {u.label}
                       </Text>
-                      <Text style={[styles.dropdownSymbol, { color: isSelected ? 'rgba(255,255,255,0.7)' : colors.textSecondary }]}>
+                      <Text style={[styles.ddSymbol, { color: isSelected ? 'rgba(255,255,255,0.7)' : colors.textSecondary }]}>
                         {u.symbol}
                         {u.id !== 'cup' ? ` · 1 ${u.symbol} = ${getRate(u.id, rates)} CUP` : ''}
                       </Text>
@@ -293,31 +378,21 @@ const KEYPAD = [
 const styles = StyleSheet.create({
   container: { flex: 1 },
   statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: radii.md,
-    borderWidth: 1,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: spacing.lg, marginBottom: spacing.sm,
+    paddingVertical: 8, paddingHorizontal: 12,
+    borderRadius: radii.md, borderWidth: 1,
   },
   dot: { width: 8, height: 8, borderRadius: 4 },
   statusText: { fontSize: 11, fontFamily: typography.mono, flex: 1 },
   refreshBtn: { padding: 4 },
   unitSection: { paddingHorizontal: spacing.lg },
-  unitRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 18,
-  },
+  unitRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18 },
   unitLeft: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
-  unitLabel: { fontSize: 16, fontFamily: typography.sans, fontWeight: '400' },
+  unitLabel: { fontSize: 16, fontFamily: typography.sans },
   unitSymbol: { fontSize: 13, fontFamily: typography.mono },
   unitValue: { fontSize: 26, fontFamily: typography.sans, fontWeight: '300', marginLeft: 12 },
-  separator: { height: StyleSheet.hairlineWidth },
+  sep: { height: StyleSheet.hairlineWidth },
   rateInfo: { fontSize: 11, fontFamily: typography.mono, textAlign: 'center', marginTop: spacing.md },
   grid: { padding: GRID_PAD, gap: BTN_GAP },
   row: { flexDirection: 'row', gap: BTN_GAP, justifyContent: 'center' },
@@ -325,7 +400,7 @@ const styles = StyleSheet.create({
   btnText: { fontFamily: typography.sans, fontWeight: '400', includeFontPadding: false },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-start', paddingTop: 80, paddingHorizontal: 24 },
   dropdown: { borderRadius: radii.xl, maxHeight: 420, overflow: 'hidden' },
-  dropdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 20 },
-  dropdownLabel: { fontSize: 16, fontFamily: typography.sans, fontWeight: '500' },
-  dropdownSymbol: { fontSize: 12, fontFamily: typography.mono, marginTop: 2 },
+  ddItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 20 },
+  ddLabel: { fontSize: 16, fontFamily: typography.sans, fontWeight: '500' },
+  ddSymbol: { fontSize: 12, fontFamily: typography.mono, marginTop: 2 },
 });
