@@ -81,12 +81,17 @@ function formatTime(iso: string): string {
 }
 
 // ─── FETCH ───────────────────────────────────────────────────
-async function fetchFromMdiv(): Promise<Rates | null> {
+async function fetchFromMdiv(): Promise<{ rates?: Rates; error?: string }> {
   try {
-    const res = await fetch(MDIV_API);
-    if (!res.ok) return null;
+    const res = await fetch(MDIV_API, {
+      headers: {
+        'Accept': 'application/json, text/plain, */*',
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+      },
+    });
+    if (!res.ok) return { error: `HTTP ${res.status}` };
     const json = await res.json();
-    if (!json?.success || !json?.data?.rates) return null;
+    if (!json?.success || !json?.data?.rates) return { error: 'Formato inválido' };
 
     const r = json.data.rates;
     const usd = parseFloat(r.avgUsdOverallRate);
@@ -94,17 +99,21 @@ async function fetchFromMdiv(): Promise<Rates | null> {
     const mlc = parseFloat(r.avgMlcOverallRate);
     const ts = json.data.timestamp;
 
-    if (isNaN(usd) || usd <= 0) return null;
+    if (isNaN(usd) || usd <= 0) return { error: 'Tasas inválidas' };
 
     return {
-      USD: Math.round(usd * 100) / 100,
-      EUR: Math.round((isNaN(eur) ? usd * 1.1 : eur) * 100) / 100,
-      MLC: Math.round((isNaN(mlc) ? usd * 0.76 : mlc) * 100) / 100,
-      timestamp: ts ? formatTime(ts) : new Date().toLocaleString('es-CU'),
-      source: 'mdiv.pro',
+      rates: {
+        USD: Math.round(usd * 100) / 100,
+        EUR: Math.round((isNaN(eur) ? usd * 1.1 : eur) * 100) / 100,
+        MLC: Math.round((isNaN(mlc) ? usd * 0.76 : mlc) * 100) / 100,
+        timestamp: ts ? formatTime(ts) : new Date().toLocaleString('es-CU'),
+        source: 'mdiv.pro',
+      }
     };
-  } catch (_) {}
-  return null;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Error de red';
+    return { error: msg };
+  }
 }
 
 // ─── COMPONENT ───────────────────────────────────────────────
@@ -126,12 +135,12 @@ export default function Divisas() {
   const fetchRates = useCallback(async () => {
     setLoading(true);
 
-    // 1. Try mdiv.pro (free, no auth)
-    const liveRates = await fetchFromMdiv();
-    if (liveRates) {
-      setRates(liveRates);
-      setStatus(`✓ ${liveRates.source} · ${liveRates.timestamp}`);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(liveRates));
+    // 1. Try mdiv.pro
+    const result = await fetchFromMdiv();
+    if (result.rates) {
+      setRates(result.rates);
+      setStatus(`✓ ${result.rates.source} · ${result.rates.timestamp}`);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(result.rates));
       setLoading(false);
       return;
     }
@@ -142,7 +151,7 @@ export default function Divisas() {
       if (cached) {
         const parsed = JSON.parse(cached) as Rates;
         setRates(parsed);
-        setStatus(`Caché · ${parsed.timestamp ?? ''}`);
+        setStatus(`Caché (${result.error}) · ${parsed.timestamp ?? ''}`);
         setLoading(false);
         return;
       }
@@ -150,7 +159,7 @@ export default function Divisas() {
 
     // 3. Fallback
     setRates(FALLBACK_RATES);
-    setStatus('Sin conexión · tasas estimadas');
+    setStatus(`Sin conexión (${result.error})`);
     setLoading(false);
   }, []);
 
