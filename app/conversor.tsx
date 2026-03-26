@@ -6,62 +6,66 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  Dimensions,
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { typography } from '../constants/theme';
-
-const { width } = Dimensions.get('window');
-const ITEM_WIDTH = width / 3;
 
 interface MenuItem {
   id: string;
   title: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  icon: keyof typeof Ionicons.glyphMap;
 }
 
 const MENU_ITEMS: MenuItem[] = [
-  { id: 'divisas', title: 'Divisas', icon: 'cash-sync' },
-  { id: 'longitud', title: 'Longitud', icon: 'ruler' },
-  { id: 'masa', title: 'Masa', icon: 'weight' },
-  { id: 'area', title: 'Área', icon: 'texture-box' },
-  { id: 'tiempo', title: 'Tiempo', icon: 'clock-time-four' },
-  { id: 'finanzas', title: 'Finanzas', icon: 'hand-coin' },
-  { id: 'datos', title: 'Datos', icon: 'harddisk' },
-  { id: 'fecha', title: 'Fecha', icon: 'calendar-blank' },
-  { id: 'descuento', title: 'Descuento', icon: 'tag' },
-  { id: 'volumen', title: 'Volumen', icon: 'cube' },
-  { id: 'sistema', title: 'Sistema numérico', icon: 'numeric' },
-  { id: 'velocidad', title: 'Velocidad', icon: 'speedometer' },
-  { id: 'temperatura', title: 'Temperatura', icon: 'thermometer' },
-  { id: 'imc', title: 'IMC', icon: 'scale-bathroom' },
+  { id: 'divisas',      title: 'Divisas',           icon: 'cash-outline' },
+  { id: 'longitud',     title: 'Longitud',          icon: 'resize-outline' },
+  { id: 'masa',         title: 'Masa',              icon: 'bag-handle-outline' },
+  { id: 'area',         title: 'Área',              icon: 'grid-outline' },
+  { id: 'tiempo',       title: 'Tiempo',            icon: 'time-outline' },
+  { id: 'finanzas',     title: 'Finanzas',          icon: 'trending-up-outline' },
+  { id: 'datos',        title: 'Datos',             icon: 'server-outline' },
+  { id: 'fecha',        title: 'Fecha',             icon: 'calendar-outline' },
+  { id: 'descuento',    title: 'Descuento',         icon: 'pricetag-outline' },
+  { id: 'volumen',      title: 'Volumen',           icon: 'cube-outline' },
+  { id: 'sistema',      title: 'Sistema\nnumérico', icon: 'code-slash-outline' },
+  { id: 'velocidad',    title: 'Velocidad',         icon: 'speedometer-outline' },
+  { id: 'temperatura',  title: 'Temperatura',       icon: 'thermometer-outline' },
+  { id: 'imc',          title: 'IMC',               icon: 'body-outline' },
 ];
 
 export default function Conversor() {
   const { colors } = useTheme();
 
+  // Build rows of 3
+  const rows: MenuItem[][] = [];
+  for (let i = 0; i < MENU_ITEMS.length; i += 3) {
+    rows.push(MENU_ITEMS.slice(i, i + 3));
+  }
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.bgDeep }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.grid}>
-          {MENU_ITEMS.map((item) => (
-            <TouchableOpacity 
-              key={item.id} 
-              style={styles.item}
-              activeOpacity={0.6}
-            >
-              <MaterialCommunityIcons 
-                name={item.icon} 
-                size={34} 
-                color={colors.textPrimary} // Pure white in dark mode
-              />
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                {item.title}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {rows.map((row, ri) => (
+          <View key={ri} style={styles.row}>
+            {row.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.item}
+                activeOpacity={0.6}
+              >
+                <Ionicons name={item.icon} size={32} color={colors.textPrimary} />
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  {item.title}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            {/* Fill empty cells in the last row to keep alignment */}
+            {row.length < 3 && Array.from({ length: 3 - row.length }).map((_, i) => (
+              <View key={`empty-${i}`} style={styles.item} />
+            ))}
+          </View>
+        ))}
       </ScrollView>
     </SafeAreaView>
   );
@@ -72,23 +76,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scroll: {
-    paddingVertical: 16,
+    paddingVertical: 20,
   },
-  grid: {
+  row: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'space-evenly',
+    marginBottom: 12,
   },
   item: {
-    width: ITEM_WIDTH,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 26,
+    paddingVertical: 22,
   },
   label: {
-    marginTop: 12,
+    marginTop: 10,
     fontSize: 13,
     fontFamily: typography.sans,
     fontWeight: '400',
     textAlign: 'center',
+    lineHeight: 18,
   },
 });
