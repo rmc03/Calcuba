@@ -20,13 +20,8 @@ import { typography, radii, spacing } from '../../constants/theme';
 // ─── CONFIG ──────────────────────────────────────────────────
 const STORAGE_KEY = 'calcuba_rates';
 
-// elToque official API (requires Bearer token)
-const ELTOQUE_API = 'https://tasas.eltoque.com/v1/trmi';
-// If you have a token, set it here or fetch from env/config:
-const ELTOQUE_TOKEN = ''; // e.g. 'eyJhbGc...'
-
-// Public fallback: scrape from the eltoque website
-const ELTOQUE_PAGE = 'https://eltoque.com/tasas-de-cambio-de-moneda-en-cuba-hoy';
+// Free, no-auth API with real-time informal rates
+const MDIV_API = 'https://mdiv.pro/api/rates';
 
 const { width: SW } = Dimensions.get('window');
 const GRID_PAD = 14;
@@ -44,7 +39,7 @@ interface Rates {
 }
 
 const FALLBACK_RATES: Rates = {
-  USD: 300, EUR: 330, MLC: 280,
+  USD: 515, EUR: 582, MLC: 392,
   timestamp: 'Estimadas', source: 'fallback',
 };
 
@@ -76,79 +71,43 @@ function formatResult(n: number): string {
   return s;
 }
 
-// ─── FETCH HELPERS ───────────────────────────────────────────
-
-/** Try the official elToque API (needs token) */
-async function fetchFromAPI(): Promise<Rates | null> {
-  if (!ELTOQUE_TOKEN) return null;
+function formatTime(iso: string): string {
   try {
-    const res = await fetch(ELTOQUE_API, {
-      headers: { Authorization: `Bearer ${ELTOQUE_TOKEN}` },
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    // API returns { tasas: { USD: {}, EUR: {}, MLC: {} } } or similar
-    const tasas = json?.tasas ?? json?.data ?? json;
-    const usd = tasas?.USD?.median ?? tasas?.USD?.venta ?? tasas?.USD;
-    const eur = tasas?.EUR?.median ?? tasas?.EUR?.venta ?? tasas?.EUR;
-    const mlc = tasas?.MLC?.median ?? tasas?.MLC?.venta ?? tasas?.MLC;
-    if (typeof usd === 'number' && typeof eur === 'number') {
-      return {
-        USD: usd, EUR: eur, MLC: typeof mlc === 'number' ? mlc : 280,
-        timestamp: new Date().toLocaleString('es-CU'),
-        source: 'API elToque',
-      };
-    }
-  } catch (_) {}
-  return null;
+    const d = new Date(iso);
+    return d.toLocaleString('es-CU', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' });
+  } catch {
+    return iso;
+  }
 }
 
-/** Fallback: fetch HTML from the public eltoque page and extract rates */
-async function fetchFromPage(): Promise<Rates | null> {
+// ─── FETCH ───────────────────────────────────────────────────
+async function fetchFromMdiv(): Promise<Rates | null> {
   try {
-    const res = await fetch(ELTOQUE_PAGE, {
-      headers: { 'User-Agent': 'CalcubaApp/1.0' },
-    });
+    const res = await fetch(MDIV_API);
     if (!res.ok) return null;
-    const html = await res.text();
+    const json = await res.json();
+    if (!json?.success || !json?.data?.rates) return null;
 
-    // The page embeds rates in JSON-LD or inline JS.
-    // Try to extract numbers near USD, EUR, MLC patterns
-    const extract = (currency: string): number | null => {
-      // Look for patterns like "USD":"320" or USD\s*[:=]\s*(\d+)
-      const patterns = [
-        new RegExp(`"${currency}"\\s*:\\s*"?(\\d+\\.?\\d*)"?`, 'i'),
-        new RegExp(`${currency}[^\\d]{0,30}(\\d{2,4}(?:\\.\\d+)?)`, 'i'),
-      ];
-      for (const re of patterns) {
-        const m = html.match(re);
-        if (m && m[1]) {
-          const v = parseFloat(m[1]);
-          if (v > 1 && v < 100000) return v;
-        }
-      }
-      return null;
+    const r = json.data.rates;
+    const usd = parseFloat(r.avgUsdOverallRate);
+    const eur = parseFloat(r.avgEurOverallRate);
+    const mlc = parseFloat(r.avgMlcOverallRate);
+    const ts = json.data.timestamp;
+
+    if (isNaN(usd) || usd <= 0) return null;
+
+    return {
+      USD: Math.round(usd * 100) / 100,
+      EUR: Math.round((isNaN(eur) ? usd * 1.1 : eur) * 100) / 100,
+      MLC: Math.round((isNaN(mlc) ? usd * 0.76 : mlc) * 100) / 100,
+      timestamp: ts ? formatTime(ts) : new Date().toLocaleString('es-CU'),
+      source: 'mdiv.pro',
     };
-
-    const usd = extract('USD');
-    const eur = extract('EUR');
-    const mlc = extract('MLC');
-
-    if (usd) {
-      return {
-        USD: usd,
-        EUR: eur ?? Math.round(usd * 1.1),
-        MLC: mlc ?? Math.round(usd * 0.93),
-        timestamp: new Date().toLocaleString('es-CU'),
-        source: 'eltoque.com',
-      };
-    }
   } catch (_) {}
   return null;
 }
 
 // ─── COMPONENT ───────────────────────────────────────────────
-
 export default function Divisas() {
   const { colors } = useTheme();
 
@@ -164,31 +123,20 @@ export default function Divisas() {
   const fromCurr = CURRENCIES[fromIdx];
   const toCurr = CURRENCIES[toIdx];
 
-  // Load cached, then fetch live
   const fetchRates = useCallback(async () => {
     setLoading(true);
 
-    // 1. Try API
-    const apiRates = await fetchFromAPI();
-    if (apiRates) {
-      setRates(apiRates);
-      setStatus(`✓ ${apiRates.source} · ${apiRates.timestamp}`);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(apiRates));
+    // 1. Try mdiv.pro (free, no auth)
+    const liveRates = await fetchFromMdiv();
+    if (liveRates) {
+      setRates(liveRates);
+      setStatus(`✓ ${liveRates.source} · ${liveRates.timestamp}`);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(liveRates));
       setLoading(false);
       return;
     }
 
-    // 2. Try web page scrape
-    const pageRates = await fetchFromPage();
-    if (pageRates) {
-      setRates(pageRates);
-      setStatus(`✓ ${pageRates.source} · ${pageRates.timestamp}`);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(pageRates));
-      setLoading(false);
-      return;
-    }
-
-    // 3. Use cached
+    // 2. Use cached
     try {
       const cached = await AsyncStorage.getItem(STORAGE_KEY);
       if (cached) {
@@ -200,14 +148,14 @@ export default function Divisas() {
       }
     } catch (_) {}
 
-    // 4. Fallback
+    // 3. Fallback
     setRates(FALLBACK_RATES);
     setStatus('Sin conexión · tasas estimadas');
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    // Load cache instantly
+    // Load cache instantly, then fetch live
     AsyncStorage.getItem(STORAGE_KEY).then((cached) => {
       if (cached) {
         try {
@@ -293,7 +241,7 @@ export default function Divisas() {
       </View>
 
       <Text style={[styles.rateInfo, { color: colors.textTertiary }]}>
-        Fuente: eltoque.com · tasas referenciales
+        Fuente: mdiv.pro · mercado informal
       </Text>
 
       <View style={{ flex: 1 }} />
