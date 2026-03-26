@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../constants/theme';
+import TopNavBar from '../../components/TopNavBar';
 
 interface MenuItem {
   id: string;
@@ -46,6 +47,7 @@ export default function ConversorIndex() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
+      <TopNavBar />
       <ScrollView contentContainerStyle={styles.scroll}>
         {rows.map((row, ri) => (
           <View key={ri} style={styles.row}>

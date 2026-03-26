@@ -11,6 +11,7 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { radii, shadows, spacing, typography } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
+import TopNavBar from '../components/TopNavBar';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_DESKTOP = SCREEN_WIDTH > 600;
@@ -225,6 +226,7 @@ export default function Calculadora() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
+      <TopNavBar />
       <View style={[IS_DESKTOP && styles.desktopWrapper, { flex: 1 }]}>
         <View style={[styles.display, { backgroundColor: colors.bgDeep }]}>
           <Text style={[styles.appLabel, { color: colors.border }]}>CALCUBA</Text>
