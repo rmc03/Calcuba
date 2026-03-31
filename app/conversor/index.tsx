@@ -22,6 +22,7 @@ interface MenuItem {
 const MENU_ITEMS: MenuItem[] = [
   { id: 'divisas',           title: 'Divisas\n(Cuba)',    icon: 'cash-outline' },
   { id: 'divisasoficiales',  title: 'Divisas\n(Mundo)',   icon: 'earth-outline' },
+  { id: 'precios',           title: 'Precios\n(Cuba)',    icon: 'cart-outline' },
   { id: 'longitud',          title: 'Longitud',           icon: 'resize-outline' },
   { id: 'masa',              title: 'Masa',               icon: 'bag-handle-outline' },
   { id: 'area',         title: 'Área',              icon: 'grid-outline' },

@@ -1,12 +1,13 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Modal } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { spacing, typography } from '../constants/theme';
 
 export default function TopNavBar() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const [menuOpen, setMenuOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -47,11 +48,44 @@ export default function TopNavBar() {
 
         {/* Menu icon */}
         <View style={styles.iconSlot}>
-          <TouchableOpacity style={styles.navIconBtn}>
+          <TouchableOpacity style={styles.navIconBtn} onPress={() => setMenuOpen(true)}>
             <Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Dropdown Menu */}
+      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setMenuOpen(false)}>
+          <View style={[styles.menuDropdown, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              activeOpacity={0.7}
+              onPress={() => {
+                setMenuOpen(false);
+                router.push('/ajustes');
+              }}
+            >
+              <Ionicons name="settings-outline" size={18} color={colors.textPrimary} />
+              <Text style={[styles.menuText, { color: colors.textPrimary }]}>Ajustes</Text>
+            </TouchableOpacity>
+            
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              activeOpacity={0.7}
+              onPress={() => {
+                setMenuOpen(false);
+                router.push('/acerca');
+              }}
+            >
+              <Ionicons name="information-circle-outline" size={18} color={colors.textPrimary} />
+              <Text style={[styles.menuText, { color: colors.textPrimary }]}>Acerca de</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -82,5 +116,38 @@ const styles = StyleSheet.create({
   },
   navIconBtn: {
     padding: spacing.xs,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  menuDropdown: {
+    position: 'absolute',
+    top: 50,
+    right: spacing.md,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    width: 180,
+    paddingVertical: spacing.xs,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  menuText: {
+    fontSize: 15,
+    fontFamily: typography.sans,
+  },
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: spacing.sm,
   },
 });
