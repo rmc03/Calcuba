@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
 import { radii, spacing, typography } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -134,6 +135,21 @@ export default function Calculadora() {
   const BTN_SIZE = Math.min(_rawBtnSize, _maxBtnHeight / 0.88);
   const BTN_HEIGHT = BTN_SIZE * 0.88;
 
+  useEffect(() => {
+    AsyncStorage.getItem('calcuba_history').then((cached) => {
+      if (cached) {
+        try {
+          setHistory(JSON.parse(cached));
+        } catch (_) {}
+      }
+    });
+  }, []);
+
+  const saveHistory = (newHistory: { expr: string; result: string }[]) => {
+    setHistory(newHistory);
+    AsyncStorage.setItem('calcuba_history', JSON.stringify(newHistory)).catch(() => {});
+  };
+
   const reset = () => {
     setCur('0'); setLiveExpr(''); setOp(null);
     setPrev(null); setWaitOp(false); setHasResult(false);
@@ -176,7 +192,8 @@ export default function Calculadora() {
     const resStr = formatNumber(res);
     const exprStr = `${displayNumber(formatNumber(prev))}${opSymbol(op)}${displayNumber(cur)}`;
     // Add to history
-    setHistory(h => [...h.slice(-8), { expr: exprStr, result: displayNumber(resStr) }]);
+    const newHist = [...history.slice(-8), { expr: exprStr, result: displayNumber(resStr) }];
+    saveHistory(newHist);
     setCur(resStr);
     setLiveExpr('');
     setPrev(null); setOp(null); setWaitOp(false); setHasResult(true);
@@ -216,7 +233,8 @@ export default function Calculadora() {
       default: res = val;
     }
     const resStr = formatNumber(res);
-    setHistory(h => [...h.slice(-8), { expr: `${fn}(${displayNumber(cur)})`, result: displayNumber(resStr) }]);
+    const newHist = [...history.slice(-8), { expr: `${fn}(${displayNumber(cur)})`, result: displayNumber(resStr) }];
+    saveHistory(newHist);
     setCur(resStr);
     setLiveExpr('');
     setHasResult(true); setPrev(null); setOp(null);

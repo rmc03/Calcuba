@@ -9,6 +9,8 @@ import {
   Dimensions,
   Platform,
   ToastAndroid,
+  Share,
+  Animated,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
@@ -46,6 +48,34 @@ type Counts = Record<number, number>;
 
 function addCommas(n: number): string {
   return n.toLocaleString('en-US');
+}
+
+function AnimatedCounter({ value, textStyle }: { value: number; textStyle: any }) {
+  const animatedValue = React.useRef(new Animated.Value(value)).current;
+  const [displayVal, setDisplayVal] = useState(value);
+
+  useEffect(() => {
+    const listener = animatedValue.addListener((state) => {
+      setDisplayVal(Math.round(state.value));
+    });
+    return () => {
+      animatedValue.removeListener(listener);
+    };
+  }, [animatedValue]);
+
+  useEffect(() => {
+    Animated.timing(animatedValue, {
+      toValue: value,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  }, [value, animatedValue]);
+
+  return (
+    <Text style={textStyle} numberOfLines={1} adjustsFontSizeToFit>
+      ${addCommas(displayVal)}
+    </Text>
+  );
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -102,6 +132,28 @@ export default function Billetes() {
     }
   };
 
+  const shareDesglose = async () => {
+    if (total === 0) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    let text = '🧮 Calcuba — Conteo de billetes\n\n';
+    DENOMS.forEach(d => {
+      const c = counts[d.valor] ?? 0;
+      if (c > 0) {
+        text += `${c}× $${addCommas(d.valor)} = $${addCommas(c * d.valor)}\n`;
+      }
+    });
+    text += '──────────\n';
+    text += `Total: $${addCommas(total)} CUP`;
+    if (usdRate > 0) {
+      text += ` (≈ $${(total / usdRate).toFixed(2)} USD)`;
+    }
+    
+    try {
+      await Share.share({ message: text });
+    } catch (e) {}
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <TopNavBar />
@@ -111,20 +163,22 @@ export default function Billetes() {
         <View style={styles.totalTop}>
           <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>TOTAL CUP</Text>
           {hasAny && (
-            <TouchableOpacity onPress={reset} style={styles.resetBtn} activeOpacity={0.6}>
-              <Ionicons name="trash-outline" size={16} color={colors.amber} />
-              <Text style={[styles.resetText, { color: colors.amber }]}> Limpiar</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: spacing.md }}>
+              <TouchableOpacity onPress={shareDesglose} style={styles.resetBtn} activeOpacity={0.6}>
+                <Ionicons name="share-outline" size={16} color={colors.textPrimary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={reset} style={styles.resetBtn} activeOpacity={0.6}>
+                <Ionicons name="trash-outline" size={16} color={colors.amber} />
+                <Text style={[styles.resetText, { color: colors.amber }]}> Limpiar</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
         <TouchableOpacity onLongPress={copyToClipboard} activeOpacity={0.7}>
-          <Text
-            style={[styles.totalValue, { color: hasAny ? colors.textPrimary : colors.textSecondary }]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-          >
-            ${addCommas(total)}
-          </Text>
+          <AnimatedCounter 
+            value={total} 
+            textStyle={[styles.totalValue, { color: hasAny ? colors.textPrimary : colors.textSecondary }]}
+          />
         </TouchableOpacity>
         {hasAny && (
           <View style={styles.equivRow}>
