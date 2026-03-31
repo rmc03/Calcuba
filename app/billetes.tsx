@@ -1,270 +1,322 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  Dimensions,
 } from 'react-native';
-import { useTheme } from '../context/ThemeContext';
-import { radii, shadows, spacing, typography } from '../constants/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
+import { radii, spacing, typography } from '../constants/theme';
+import TopNavBar from '../components/TopNavBar';
 
-interface Denominacion {
+const { width: SW } = Dimensions.get('window');
+
+// ─── Denominations ───────────────────────────────────────────
+interface Denom {
   valor: number;
-  tipo: 'billete' | 'moneda';
   label: string;
+  tipo: 'billete' | 'moneda';
 }
 
-const DENOMINACIONES: Denominacion[] = [
-  { valor: 1000, tipo: 'billete', label: '$1000' },
-  { valor: 500,  tipo: 'billete', label: '$500'  },
-  { valor: 200,  tipo: 'billete', label: '$200'  },
-  { valor: 100,  tipo: 'billete', label: '$100'  },
-  { valor: 50,   tipo: 'billete', label: '$50'   },
-  { valor: 20,   tipo: 'billete', label: '$20'   },
-  { valor: 10,   tipo: 'billete', label: '$10'   },
-  { valor: 5,    tipo: 'billete', label: '$5'    },
-  { valor: 3,    tipo: 'billete', label: '$3'    },
-  { valor: 1,    tipo: 'moneda',  label: '$1'    },
-  { valor: 0.50, tipo: 'moneda',  label: '50¢'   },
-  { valor: 0.25, tipo: 'moneda',  label: '25¢'   },
-  { valor: 0.20, tipo: 'moneda',  label: '20¢'   },
-  { valor: 0.05, tipo: 'moneda',  label: '5¢'    },
-  { valor: 0.02, tipo: 'moneda',  label: '2¢'    },
-  { valor: 0.01, tipo: 'moneda',  label: '1¢'    },
+const DENOMS: Denom[] = [
+  { valor: 1000, label: '$1,000', tipo: 'billete' },
+  { valor: 500,  label: '$500',   tipo: 'billete' },
+  { valor: 200,  label: '$200',   tipo: 'billete' },
+  { valor: 100,  label: '$100',   tipo: 'billete' },
+  { valor: 50,   label: '$50',    tipo: 'billete' },
+  { valor: 20,   label: '$20',    tipo: 'billete' },
+  { valor: 10,   label: '$10',    tipo: 'billete' },
+  { valor: 5,    label: '$5',     tipo: 'billete' },
+  { valor: 3,    label: '$3',     tipo: 'billete' },
+  { valor: 1,    label: '$1',     tipo: 'moneda' },
 ];
 
 type Counts = Record<number, number>;
 
-function formatCUP(val: number): string {
-  return parseFloat(val.toPrecision(10)).toLocaleString('es-CU', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+function addCommas(n: number): string {
+  return n.toLocaleString('en-US');
 }
 
+// ─── Component ───────────────────────────────────────────────
 export default function Billetes() {
   const { colors } = useTheme();
   const [counts, setCounts] = useState<Counts>({});
+  const [usdRate, setUsdRate] = useState(0);
+  const [eurRate, setEurRate] = useState(0);
 
-  const setCount = (valor: number, val: string) => {
-    const num = parseInt(val) || 0;
-    setCounts((prev) => ({ ...prev, [valor]: Math.max(0, num) }));
-  };
+  // Load cached exchange rates
+  useEffect(() => {
+    AsyncStorage.getItem('calcuba_rates').then((cached) => {
+      if (cached) {
+        try {
+          const r = JSON.parse(cached);
+          if (r.USD) setUsdRate(r.USD);
+          if (r.EUR) setEurRate(r.EUR);
+        } catch (_) {}
+      }
+    });
+  }, []);
 
-  const increment = (valor: number) =>
-    setCounts((prev) => ({ ...prev, [valor]: (prev[valor] ?? 0) + 1 }));
-
-  const decrement = (valor: number) =>
-    setCounts((prev) => ({ ...prev, [valor]: Math.max(0, (prev[valor] ?? 0) - 1) }));
-
-  const limpiar = () => setCounts({});
+  const increment = (v: number) =>
+    setCounts((p) => ({ ...p, [v]: (p[v] ?? 0) + 1 }));
+  const decrement = (v: number) =>
+    setCounts((p) => ({ ...p, [v]: Math.max(0, (p[v] ?? 0) - 1) }));
+  const reset = () => setCounts({});
 
   const total = useMemo(
-    () => DENOMINACIONES.reduce((acc, d) => acc + (counts[d.valor] ?? 0) * d.valor, 0),
-    [counts]
+    () => DENOMS.reduce((acc, d) => acc + (counts[d.valor] ?? 0) * d.valor, 0),
+    [counts],
   );
+  const pieces = useMemo(
+    () => Object.values(counts).reduce((a, b) => a + b, 0),
+    [counts],
+  );
+  const hasAny = pieces > 0;
 
-  const billetes = DENOMINACIONES.filter((d) => d.tipo === 'billete');
-  const monedas = DENOMINACIONES.filter((d) => d.tipo === 'moneda');
-  const hasAny = Object.values(counts).some((v) => v > 0);
+  const billetes = DENOMS.filter((d) => d.tipo === 'billete');
+  const monedas = DENOMS.filter((d) => d.tipo === 'moneda');
 
   return (
-    <SafeAreaView style={[s.container, { backgroundColor: colors.bg }]}>
-      <View style={[s.totalCard, { backgroundColor: colors.bgDeep, borderColor: colors.border }]}>
-        <View>
-          <Text style={[s.totalLabel, { color: colors.textTertiary }]}>TOTAL EN CUP</Text>
-          <Text style={[s.totalValue, { color: hasAny ? colors.amber : colors.textTertiary }]}>
-            ${formatCUP(total)}
-          </Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
+      <TopNavBar />
+
+      {/* Total header */}
+      <View style={[styles.totalSection, { borderBottomColor: colors.border }]}>
+        <View style={styles.totalTop}>
+          <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>TOTAL CUP</Text>
           {hasAny && (
-            <Text style={[s.totalSub, { color: colors.textSecondary }]}>
-              {Object.values(counts).reduce((a, b) => a + b, 0)} piezas
-            </Text>
+            <TouchableOpacity onPress={reset} style={styles.resetBtn} activeOpacity={0.6}>
+              <Ionicons name="trash-outline" size={16} color={colors.amber} />
+              <Text style={[styles.resetText, { color: colors.amber }]}> Limpiar</Text>
+            </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity
-          style={[
-            s.clearBtn,
-            { backgroundColor: colors.bgCard, borderColor: colors.accent },
-            !hasAny && { opacity: 0.35 },
-            shadows.sm,
-          ]}
-          onPress={limpiar}
-          disabled={!hasAny}
+        <Text
+          style={[styles.totalValue, { color: hasAny ? colors.textPrimary : colors.textSecondary }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
         >
-          <Ionicons 
-            name="trash-outline" 
-            size={16} 
-            color={colors.accent} 
-          />
-          <Text style={[s.clearText, { color: colors.accent }]}> Limpiar</Text>
-        </TouchableOpacity>
+          ${addCommas(total)}
+        </Text>
+        {hasAny && (
+          <View style={styles.equivRow}>
+            <Text style={[styles.equivText, { color: colors.textSecondary }]}>
+              {pieces} {pieces === 1 ? 'pieza' : 'piezas'}
+            </Text>
+            {usdRate > 0 && (
+              <Text style={[styles.equivText, { color: colors.amber }]}>
+                {' '}· ≈ ${(total / usdRate).toFixed(2)} USD
+              </Text>
+            )}
+            {eurRate > 0 && (
+              <Text style={[styles.equivText, { color: colors.textSecondary }]}>
+                {' '}· €{(total / eurRate).toFixed(2)}
+              </Text>
+            )}
+          </View>
+        )}
       </View>
 
-      <ScrollView contentContainerStyle={s.scroll}>
-        <SectionHeader icon="cash" label="Billetes" colors={colors} />
-        {billetes.map((d) => (
-          <DenomRow
-            key={d.valor}
-            denom={d}
-            count={counts[d.valor] ?? 0}
-            onIncrement={() => increment(d.valor)}
-            onDecrement={() => decrement(d.valor)}
-            onChangeText={(v) => setCount(d.valor, v)}
-            colors={colors}
-          />
-        ))}
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Billetes section */}
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>BILLETES</Text>
+        {billetes.map((d) => {
+          const count = counts[d.valor] ?? 0;
+          const sub = count * d.valor;
+          return (
+            <View key={d.valor} style={[styles.denomRow, { borderBottomColor: colors.border }]}>
+              <View style={styles.denomLeft}>
+                <Text style={[styles.denomLabel, { color: colors.textPrimary }]}>{d.label}</Text>
+                {count > 0 && (
+                  <Text style={[styles.denomSub, { color: colors.amber }]}>
+                    = ${addCommas(sub)}
+                  </Text>
+                )}
+              </View>
 
-        <SectionHeader icon="coins" label="Monedas" colors={colors} />
-        {monedas.map((d) => (
-          <DenomRow
-            key={d.valor}
-            denom={d}
-            count={counts[d.valor] ?? 0}
-            onIncrement={() => increment(d.valor)}
-            onDecrement={() => decrement(d.valor)}
-            onChangeText={(v) => setCount(d.valor, v)}
-            colors={colors}
-          />
-        ))}
+              <View style={styles.stepper}>
+                <TouchableOpacity
+                  style={[styles.stepBtn, { backgroundColor: colors.bgCard }]}
+                  onPress={() => decrement(d.valor)}
+                  disabled={count === 0}
+                  activeOpacity={0.6}
+                >
+                  <Ionicons
+                    name="remove"
+                    size={20}
+                    color={count === 0 ? colors.textSecondary : colors.amber}
+                  />
+                </TouchableOpacity>
 
-        <View style={{ height: 32 }} />
+                <Text style={[styles.countText, { color: colors.textPrimary }]}>
+                  {count}
+                </Text>
+
+                <TouchableOpacity
+                  style={[styles.stepBtn, { backgroundColor: colors.bgCard }]}
+                  onPress={() => increment(d.valor)}
+                  activeOpacity={0.6}
+                >
+                  <Ionicons name="add" size={20} color={colors.amber} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        })}
+
+        {/* Monedas section */}
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: spacing.xl }]}>
+          MONEDAS
+        </Text>
+        {monedas.map((d) => {
+          const count = counts[d.valor] ?? 0;
+          const sub = count * d.valor;
+          return (
+            <View key={d.valor} style={[styles.denomRow, { borderBottomColor: colors.border }]}>
+              <View style={styles.denomLeft}>
+                <Text style={[styles.denomLabel, { color: colors.textPrimary }]}>{d.label}</Text>
+                {count > 0 && (
+                  <Text style={[styles.denomSub, { color: colors.amber }]}>
+                    = ${addCommas(sub)}
+                  </Text>
+                )}
+              </View>
+              <View style={styles.stepper}>
+                <TouchableOpacity
+                  style={[styles.stepBtn, { backgroundColor: colors.bgCard }]}
+                  onPress={() => decrement(d.valor)}
+                  disabled={count === 0}
+                  activeOpacity={0.6}
+                >
+                  <Ionicons
+                    name="remove"
+                    size={20}
+                    color={count === 0 ? colors.textSecondary : colors.amber}
+                  />
+                </TouchableOpacity>
+                <Text style={[styles.countText, { color: colors.textPrimary }]}>
+                  {count}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.stepBtn, { backgroundColor: colors.bgCard }]}
+                  onPress={() => increment(d.valor)}
+                  activeOpacity={0.6}
+                >
+                  <Ionicons name="add" size={20} color={colors.amber} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        })}
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function SectionHeader({ icon, label, colors }: { icon: string; label: string; colors: any }) {
-  return (
-    <View style={[s.sectionHeader, { borderBottomColor: colors.border }]}>
-      <Ionicons name={icon as any} size={14} color={colors.textSecondary} style={{ marginRight: 6 }} />
-      <Text style={[s.sectionLabel, { color: colors.textSecondary }]}>{label}</Text>
-    </View>
-  );
-}
-
-interface DenomRowProps {
-  denom: Denominacion;
-  count: number;
-  onIncrement: () => void;
-  onDecrement: () => void;
-  onChangeText: (v: string) => void;
-  colors: any;
-}
-
-function DenomRow({ denom, count, onIncrement, onDecrement, onChangeText, colors }: DenomRowProps) {
-  const subtotal = count * denom.valor;
-  const hasValue = count > 0;
-
-  return (
-    <View
-      style={[
-        s.row,
-        { backgroundColor: colors.bgCard, borderColor: hasValue ? colors.borderFocus : colors.border },
-        hasValue && shadows.sm,
-      ]}
-    >
-      <View style={s.rowLeft}>
-        <Text style={[s.denomLabel, { color: colors.textPrimary }]}>{denom.label}</Text>
-        {hasValue && (
-          <Text style={[s.subtotal, { color: colors.green }]}>
-            = ${formatCUP(subtotal)}
-          </Text>
-        )}
-      </View>
-
-      <View style={s.counter}>
-        <TouchableOpacity
-          style={[s.counterBtn, { backgroundColor: colors.bgInput, borderColor: colors.border }]}
-          onPress={onDecrement}
-          activeOpacity={0.7}
-          disabled={count === 0}
-        >
-          <Ionicons 
-            name="remove" 
-            size={18} 
-            color={count === 0 ? colors.textTertiary : colors.textSecondary} 
-          />
-        </TouchableOpacity>
-
-        <TextInput
-          style={[
-            s.counterInput,
-            { backgroundColor: colors.bgInput, borderColor: colors.border, color: colors.textPrimary },
-          ]}
-          value={count === 0 ? '' : String(count)}
-          onChangeText={onChangeText}
-          keyboardType="number-pad"
-          placeholder="0"
-          placeholderTextColor={colors.textTertiary}
-          selectionColor={colors.accent}
-          textAlign="center"
-        />
-
-        <TouchableOpacity
-          style={[s.counterBtnPlus, { backgroundColor: colors.accent }]}
-          onPress={onIncrement}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="add" size={18} color="#fff" />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   container: { flex: 1 },
-  totalCard: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: spacing.lg, paddingTop: spacing.md,
+
+  // Total section
+  totalSection: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  totalLabel: { fontSize: 10, fontFamily: typography.mono, letterSpacing: 2 },
-  totalValue: { fontSize: 36, fontFamily: typography.sans, fontWeight: '700', marginTop: 2 },
-  totalSub: { fontSize: 11, fontFamily: typography.mono, marginTop: 2 },
-  clearBtn: {
+  totalTop: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    borderRadius: radii.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    borderWidth: 1,
+    marginBottom: spacing.xs,
   },
-  clearText: { fontFamily: typography.mono, fontSize: 12, fontWeight: '600' },
-  scroll: { padding: spacing.md },
-  sectionHeader: {
+  totalLabel: {
+    fontSize: 11,
+    fontFamily: typography.mono,
+    letterSpacing: 2,
+  },
+  resetBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm, paddingHorizontal: spacing.xs,
-    marginTop: spacing.md, marginBottom: spacing.xs,
+  },
+  resetText: {
+    fontSize: 13,
+    fontFamily: typography.sans,
+    fontWeight: '500',
+  },
+  totalValue: {
+    fontSize: 48,
+    fontFamily: typography.sans,
+    fontWeight: '300',
+    letterSpacing: -1,
+  },
+  equivRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: spacing.xs,
+  },
+  equivText: {
+    fontSize: 13,
+    fontFamily: typography.mono,
+  },
+
+  // Scroll
+  scroll: {
+    paddingHorizontal: spacing.xl,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontFamily: typography.mono,
+    letterSpacing: 2,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+
+  // Denom rows
+  denomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  sectionLabel: { fontSize: 11, fontFamily: typography.mono, letterSpacing: 2 },
-  row: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderRadius: radii.md, padding: spacing.md, marginVertical: 3,
-    borderWidth: StyleSheet.hairlineWidth,
+  denomLeft: {
+    flex: 1,
   },
-  rowLeft: { flex: 1 },
-  denomLabel: { fontSize: 17, fontFamily: typography.sans, fontWeight: '600' },
-  subtotal: { fontSize: 11, fontFamily: typography.mono, marginTop: 2 },
-  counter: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  counterBtn: {
-    width: 34, height: 34, borderRadius: radii.sm,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
+  denomLabel: {
+    fontSize: 18,
+    fontFamily: typography.sans,
+    fontWeight: '500',
   },
-  counterBtnPlus: {
-    width: 34, height: 34, borderRadius: radii.sm,
-    alignItems: 'center', justifyContent: 'center',
+  denomSub: {
+    fontSize: 12,
+    fontFamily: typography.mono,
+    marginTop: 2,
   },
-  counterInput: {
-    width: 52, height: 34, borderRadius: radii.xs,
-    fontSize: 15, fontFamily: typography.mono,
-    borderWidth: StyleSheet.hairlineWidth,
-    includeFontPadding: false,
+
+  // Stepper
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  stepBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countText: {
+    fontSize: 20,
+    fontFamily: typography.sans,
+    fontWeight: '400',
+    minWidth: 30,
+    textAlign: 'center',
   },
 });
