@@ -1,41 +1,38 @@
 export const palette = {
-  // iOS Accent Blue (like system blue)
-  accent: '#007AFF',
-  accentDim: 'rgba(0,122,255,0.15)',
+  accent: '#3B82F6', // Cobalt Blue
+  accentDim: 'rgba(59,130,246,0.15)',
   
-  // Secondary accent - orange for highlights (like iOS orange)
-  amber: '#FF9500',
-  amberDim: 'rgba(255,149,0,0.12)',
+  // Repurposing 'amber' as our main Neo-Fintech Emerald accent
+  amber: '#10B981', // Emerald Green
+  amberDim: 'rgba(16,185,129,0.15)',
   
-  // Green for success states
-  green: '#34C759',
+  green: '#10B981',
   
-  // System grays (iOS style)
-  gray1: '#8E8E93',
-  gray2: '#636366',
-  gray3: '#48484A',
-  gray4: '#3A3A3C',
-  gray5: '#2C2C2E',
-  gray6: '#1C1C1E',
+  // System grays (Zinc scale for Fintech feel)
+  gray1: '#a1a1aa', // zinc-400
+  gray2: '#71717a', // zinc-500
+  gray3: '#52525b', // zinc-600
+  gray4: '#3f3f46', // zinc-700
+  gray5: '#27272a', // zinc-800
+  gray6: '#18181b', // zinc-900
 
-  // Dark mode backgrounds (iOS dark mode)
-  dark0: '#000000',
-  dark1: '#1C1C1E',
-  dark2: '#2C2C2E',
-  dark3: '#3A3A3C',
-  dark4: '#48484A',
-  dark5: '#636366',
-  dark6: '#787880',
+  // Dark mode backgrounds (Deep Zinc)
+  dark0: '#09090b', // zinc-950
+  dark1: '#18181b', // zinc-900
+  dark2: '#27272a', // zinc-800
+  dark3: '#3f3f46', // zinc-700
+  dark4: '#52525b', // zinc-600
+  dark5: '#71717a', // zinc-500
+  dark6: '#a1a1aa', // zinc-400
 
-  // Light mode backgrounds (iOS light mode)
+  // Light mode backgrounds
   light0: '#FFFFFF',
-  light1: '#F2F2F7',
-  light2: '#E5E5EA',
-  light3: '#D1D1D6',
-  light4: '#C7C7CC',
-  light5: '#AEAEB2',
+  light1: '#fafafa', // zinc-50
+  light2: '#f4f4f5', // zinc-100
+  light3: '#e4e4e7', // zinc-200
+  light4: '#d4d4d8', // zinc-300
+  light5: '#a1a1aa', // zinc-400
 
-  // Text colors
   white: '#FFFFFF',
   black: '#000000',
 };
@@ -43,23 +40,20 @@ export const palette = {
 export type ColorScheme = Omit<typeof darkColors, 'statusBar'> & Omit<typeof lightColors, 'statusBar'> & { statusBar: 'light' | 'dark' };
 
 export const darkColors = {
-  // Backgrounds - MIUI dark mode depth
   bg: palette.dark0,
   bgDeep: palette.dark0,
-  bgCard: '#222225', // warmer dark gray matching MIUI calculator buttons
+  bgCard: palette.dark1,
   bgInput: palette.dark1,
 
-  // Borders - subtle iOS separators
-  border: palette.dark3,
-  borderFocus: palette.dark5,
+  border: palette.dark2,
+  borderFocus: palette.dark4,
 
-  // Calculator buttons - iOS dark style
   btnDigit: palette.dark2,
   btnOp: palette.amber,
   btnSci: palette.dark2,
   btnEq: palette.amber,
-  btnAc: palette.light4,
-  btnMod: palette.light4,
+  btnAc: palette.dark3,
+  btnMod: palette.dark3,
 
   // Text colors
   textPrimary: palette.white,
@@ -87,17 +81,14 @@ export const darkColors = {
 };
 
 export const lightColors = {
-  // Backgrounds - iOS light mode
   bg: palette.light1,
   bgDeep: palette.light1,
   bgCard: palette.light0,
-  bgInput: palette.light2,
+  bgInput: palette.light0,
 
-  // Borders - subtle iOS separators
   border: palette.light3,
-  borderFocus: palette.light4,
+  borderFocus: palette.light5,
 
-  // Calculator buttons - iOS light style
   btnDigit: palette.light0,
   btnOp: palette.amber,
   btnSci: palette.light0,

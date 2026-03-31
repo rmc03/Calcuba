@@ -19,7 +19,7 @@ const { width: SW } = Dimensions.get('window');
 const GRID_PAD = 14;
 const BTN_GAP = 10;
 const BTN_W = (Math.min(SW, 400) - GRID_PAD * 2 - BTN_GAP * 3) / 4;
-const BTN_H = BTN_W * 0.88;
+const BTN_H = BTN_W;
 
 const KEYPAD = [
   [{ id: 'c', label: 'C', icon: '' }, { id: 'm', label: 'M', icon: '' }, { id: 'd', label: 'D', icon: '' }, { id: 'bs', label: '', icon: 'backspace-outline' }],
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   },
   btn: {
     margin: BTN_GAP / 2,
-    borderRadius: 16,
+    borderRadius: BTN_W / 2,
     alignItems: 'center',
     justifyContent: 'center',
   },

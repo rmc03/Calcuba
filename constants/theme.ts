@@ -1,17 +1,19 @@
 import { Platform } from 'react-native';
 
 export const typography = {
-  display: Platform.select({ ios: 'System', android: 'sans-serif-thin', default: 'monospace' }),
-  mono: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
-  sans: Platform.select({ ios: 'System', android: 'sans-serif', default: 'System' }),
+  display: 'Outfit_500Medium',
+  mono: 'Outfit_400Regular',
+  sans: 'Outfit_400Regular',
+  sansMedium: 'Outfit_500Medium',
+  sansBold: 'Outfit_700Bold',
 };
 
 export const radii = {
-  xs: 6,
-  sm: 10,
-  md: 14,
-  lg: 18,
-  xl: 24,
+  xs: 8,
+  sm: 12,
+  md: 16,
+  lg: 20,
+  xl: 28,
   full: 9999,
 };
 

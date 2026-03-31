@@ -27,23 +27,41 @@ export default function TopNavBar() {
         {/* Spacer to balance the right icon */}
         <View style={styles.iconSlot} />
 
-        {/* Centered tabs */}
-        <View style={styles.navLinks}>
-          {tabs.map((tab) => (
-            <TouchableOpacity key={tab.path} onPress={() => router.replace(tab.path as any)}>
-              <Text
+        {/* Centered Pill Tabs */}
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <View style={[styles.pillContainer, { backgroundColor: isDark ? colors.bgCard : colors.border }]}>
+            {tabs.map((tab) => (
+              <TouchableOpacity
+                key={tab.path}
+                onPress={() => router.replace(tab.path as any)}
+                activeOpacity={0.7}
                 style={[
-                  styles.navText,
-                  {
-                    color: tab.active ? colors.textPrimary : colors.textSecondary,
-                    fontWeight: tab.active ? '600' : '400',
+                  styles.pillItem,
+                  tab.active && {
+                    backgroundColor: isDark ? colors.bg : colors.bgCard,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.15,
+                    shadowRadius: 2,
+                    elevation: 1,
                   },
                 ]}
               >
-                {tab.title}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Text
+                  style={[
+                    styles.navText,
+                    {
+                      color: tab.active ? (isDark ? colors.amber : colors.textPrimary) : colors.textTertiary,
+                      fontFamily: tab.active ? typography.sansMedium : typography.sans,
+                      fontWeight: tab.active ? '600' : '400',
+                    },
+                  ]}
+                >
+                  {tab.title}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* Menu icon */}
@@ -103,16 +121,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navLinks: {
-    flex: 1,
+  pillContainer: {
     flexDirection: 'row',
-    gap: spacing.lg,
-    justifyContent: 'center',
+    borderRadius: 999,
+    padding: 4,
     alignItems: 'center',
   },
+  pillItem: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+  },
   navText: {
-    fontSize: 16,
-    fontFamily: typography.sans,
+    fontSize: 14,
   },
   navIconBtn: {
     padding: spacing.xs,

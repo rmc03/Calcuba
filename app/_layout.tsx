@@ -1,8 +1,13 @@
+import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
+import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_700Bold } from '@expo-google-fonts/outfit';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+
+SplashScreen.preventAutoHideAsync();
 
 function TabIcon({
   color,
@@ -69,6 +74,20 @@ function InnerLayout() {
 }
 
 export default function Layout() {
+  const [loaded] = useFonts({
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_700Bold,
+  });
+
+  useEffect(() => {
+    if (loaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded]);
+
+  if (!loaded) return null;
+
   return (
     <ThemeProvider>
       <InnerLayout />

@@ -132,8 +132,8 @@ export default function Calculadora() {
 
   const BUTTONS = useMemo(() => showSci ? [...BUTTONS_SCI, ...BUTTONS_MAIN] : BUTTONS_MAIN, [showSci]);
   const _maxBtnHeight = Math.max((SCREEN_HEIGHT - 320) / BUTTONS.length, 30);
-  const BTN_SIZE = Math.min(_rawBtnSize, _maxBtnHeight / 0.88);
-  const BTN_HEIGHT = BTN_SIZE * 0.88;
+  const BTN_SIZE = Math.min(_rawBtnSize, _maxBtnHeight);
+  const BTN_HEIGHT = BTN_SIZE;
 
   useEffect(() => {
     AsyncStorage.getItem('calcuba_history').then((cached) => {
@@ -347,7 +347,7 @@ export default function Calculadora() {
                       backgroundColor: getBtnBg(btn),
                       width: BTN_SIZE,
                       height: BTN_HEIGHT,
-                      borderRadius: BTN_HEIGHT * 0.32,
+                      borderRadius: BTN_HEIGHT / 2,
                     },
                   ]}
                   onPress={() => handlePress(btn)}
