@@ -24,6 +24,8 @@ interface Denom {
 }
 
 const DENOMS: Denom[] = [
+  { valor: 5000, label: '$5,000', tipo: 'billete' },
+  { valor: 2000, label: '$2,000', tipo: 'billete' },
   { valor: 1000, label: '$1,000', tipo: 'billete' },
   { valor: 500,  label: '$500',   tipo: 'billete' },
   { valor: 200,  label: '$200',   tipo: 'billete' },
@@ -33,7 +35,7 @@ const DENOMS: Denom[] = [
   { valor: 10,   label: '$10',    tipo: 'billete' },
   { valor: 5,    label: '$5',     tipo: 'billete' },
   { valor: 3,    label: '$3',     tipo: 'billete' },
-  { valor: 1,    label: '$1',     tipo: 'moneda' },
+  { valor: 1,    label: '$1',     tipo: 'billete' },
 ];
 
 type Counts = Record<number, number>;
@@ -78,8 +80,7 @@ export default function Billetes() {
   );
   const hasAny = pieces > 0;
 
-  const billetes = DENOMS.filter((d) => d.tipo === 'billete');
-  const monedas = DENOMS.filter((d) => d.tipo === 'moneda');
+  const billetes = DENOMS;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -123,7 +124,6 @@ export default function Billetes() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Billetes section */}
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>BILLETES</Text>
         {billetes.map((d) => {
           const count = counts[d.valor] ?? 0;
@@ -157,51 +157,6 @@ export default function Billetes() {
                   {count}
                 </Text>
 
-                <TouchableOpacity
-                  style={[styles.stepBtn, { backgroundColor: colors.bgCard }]}
-                  onPress={() => increment(d.valor)}
-                  activeOpacity={0.6}
-                >
-                  <Ionicons name="add" size={20} color={colors.amber} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          );
-        })}
-
-        {/* Monedas section */}
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: spacing.xl }]}>
-          MONEDAS
-        </Text>
-        {monedas.map((d) => {
-          const count = counts[d.valor] ?? 0;
-          const sub = count * d.valor;
-          return (
-            <View key={d.valor} style={[styles.denomRow, { borderBottomColor: colors.border }]}>
-              <View style={styles.denomLeft}>
-                <Text style={[styles.denomLabel, { color: colors.textPrimary }]}>{d.label}</Text>
-                {count > 0 && (
-                  <Text style={[styles.denomSub, { color: colors.amber }]}>
-                    = ${addCommas(sub)}
-                  </Text>
-                )}
-              </View>
-              <View style={styles.stepper}>
-                <TouchableOpacity
-                  style={[styles.stepBtn, { backgroundColor: colors.bgCard }]}
-                  onPress={() => decrement(d.valor)}
-                  disabled={count === 0}
-                  activeOpacity={0.6}
-                >
-                  <Ionicons
-                    name="remove"
-                    size={20}
-                    color={count === 0 ? colors.textSecondary : colors.amber}
-                  />
-                </TouchableOpacity>
-                <Text style={[styles.countText, { color: colors.textPrimary }]}>
-                  {count}
-                </Text>
                 <TouchableOpacity
                   style={[styles.stepBtn, { backgroundColor: colors.bgCard }]}
                   onPress={() => increment(d.valor)}
