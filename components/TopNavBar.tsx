@@ -23,6 +23,10 @@ export default function TopNavBar() {
   return (
     <SafeAreaView style={{ backgroundColor: colors.bg }}>
       <View style={styles.topNav}>
+        {/* Spacer to balance the right icon */}
+        <View style={styles.iconSlot} />
+
+        {/* Centered tabs */}
         <View style={styles.navLinks}>
           {tabs.map((tab) => (
             <TouchableOpacity key={tab.path} onPress={() => router.replace(tab.path as any)}>
@@ -41,9 +45,12 @@ export default function TopNavBar() {
           ))}
         </View>
 
-        <TouchableOpacity style={styles.navIconBtn}>
-          <Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
-        </TouchableOpacity>
+        {/* Menu icon */}
+        <View style={styles.iconSlot}>
+          <TouchableOpacity style={styles.navIconBtn}>
+            <Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -54,12 +61,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
   },
+  iconSlot: {
+    width: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   navLinks: {
+    flex: 1,
     flexDirection: 'row',
     gap: spacing.lg,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   navText: {
