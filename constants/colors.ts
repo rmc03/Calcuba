@@ -43,14 +43,14 @@ export const palette = {
 export type ColorScheme = Omit<typeof darkColors, 'statusBar'> & Omit<typeof lightColors, 'statusBar'> & { statusBar: 'light' | 'dark' };
 
 export const darkColors = {
-  // Backgrounds - iOS dark mode depth
+  // Backgrounds - MIUI dark mode depth
   bg: palette.dark0,
   bgDeep: palette.dark0,
-  bgCard: palette.dark1,
+  bgCard: '#222225', // warmer dark gray matching MIUI calculator buttons
   bgInput: palette.dark1,
 
   // Borders - subtle iOS separators
-  border: palette.dark4,
+  border: palette.dark3,
   borderFocus: palette.dark5,
 
   // Calculator buttons - iOS dark style

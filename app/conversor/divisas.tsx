@@ -128,11 +128,13 @@ export default function Divisas() {
 
   const [fromIdx, setFromIdx] = useState(0);
   const [toIdx, setToIdx] = useState(1);
+  const [extraIdx, setExtraIdx] = useState(2); // 3rd row (EUR by default)
   const [input, setInput] = useState('1');
-  const [picker, setPicker] = useState<'from' | 'to' | null>(null);
+  const [picker, setPicker] = useState<'from' | 'to' | 'extra' | null>(null);
 
   const fromCurr = CURRENCIES[fromIdx];
   const toCurr = CURRENCIES[toIdx];
+  const extraCurr = CURRENCIES[extraIdx];
 
   const fetchRates = useCallback(async () => {
     setLoading(true);
@@ -180,13 +182,15 @@ export default function Divisas() {
   }, []);
 
   // Conversion
-  const result = useMemo(() => {
+  const convertTo = (toId: string) => {
     const n = parseFloat(input);
     if (isNaN(n) || input === '') return '';
     const fromRate = getRate(fromCurr.id, rates);
-    const toRate = getRate(toCurr.id, rates);
+    const toRate = getRate(toId, rates);
     return formatResult((n * fromRate) / toRate);
-  }, [input, fromIdx, toIdx, rates]);
+  };
+  const result = useMemo(() => convertTo(toCurr.id), [input, fromIdx, toIdx, rates]);
+  const extraResult = useMemo(() => convertTo(extraCurr.id), [input, fromIdx, extraIdx, rates]);
 
   // Keypad
   const handleDigit = (d: string) => {
@@ -202,11 +206,12 @@ export default function Divisas() {
   const swap = () => { const f = fromIdx; setFromIdx(toIdx); setToIdx(f); };
   const selectUnit = (idx: number) => {
     if (picker === 'from') setFromIdx(idx);
-    else setToIdx(idx);
+    else if (picker === 'to') setToIdx(idx);
+    else if (picker === 'extra') setExtraIdx(idx);
     setPicker(null);
   };
 
-  const activeIdx = picker === 'from' ? fromIdx : toIdx;
+  const activeIdx = picker === 'from' ? fromIdx : picker === 'extra' ? extraIdx : toIdx;
   const isLive = rates.source && rates.source !== 'fallback';
 
   return (
@@ -248,6 +253,17 @@ export default function Divisas() {
             <Ionicons name="chevron-expand-outline" size={16} color={colors.textSecondary} style={{ marginLeft: 6 }} />
           </View>
           <Text style={[styles.unitValue, { color: colors.textPrimary }]}>{result}</Text>
+        </TouchableOpacity>
+
+        <View style={[styles.sep, { backgroundColor: colors.border }]} />
+
+        <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('extra')} activeOpacity={0.6}>
+          <View style={styles.unitLeft}>
+            <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{extraCurr.label}</Text>
+            <Text style={[styles.unitSymbol, { color: colors.textSecondary }]}> {extraCurr.symbol}</Text>
+            <Ionicons name="chevron-expand-outline" size={16} color={colors.textSecondary} style={{ marginLeft: 6 }} />
+          </View>
+          <Text style={[styles.unitValue, { color: colors.textPrimary }]}>{extraResult}</Text>
         </TouchableOpacity>
       </View>
 
