@@ -58,6 +58,7 @@ export default function Precios() {
   const [input, setInput] = useState('');
   const [currency, setCurrency] = useState<'CUP' | 'USD' | 'EUR' | 'MLC'>('MLC');
   const [rates, setRates] = useState<Rates>(FALLBACK_RATES);
+  const [hasRates, setHasRates] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem('calcuba_rates').then(str => {
@@ -66,6 +67,7 @@ export default function Precios() {
           const parsed = JSON.parse(str);
           if (parsed && typeof parsed.USD === 'number') {
             setRates(parsed);
+            setHasRates(true);
           }
         } catch {}
       }
@@ -116,6 +118,13 @@ export default function Precios() {
       <SubScreenHeader title="Precios" />
       <ScrollView contentContainerStyle={styles.scroll}>
         
+        {!hasRates && (
+          <View style={[styles.warningBanner, { backgroundColor: colors.amber + '22' }]}>
+            <Ionicons name="warning-outline" size={16} color={colors.amber} />
+            <Text style={[styles.warningText, { color: colors.amber }]}>No hay tasas actualizadas. Conéctate a internet desde Divisas.</Text>
+          </View>
+        )}
+
         {/* Main Input */}
         <View style={styles.inputArea}>
           <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Precio a comparar:</Text>
@@ -147,7 +156,7 @@ export default function Precios() {
             {getBreakdown(cupBase).map(({ val, c }, i, a) => (
               <View key={val} style={[styles.breakdownRow, i < a.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth }]}>
                 <Text style={[styles.breakdownLabel, { color: colors.textPrimary }]}>{c}× ${val.toLocaleString('en-US')}</Text>
-                <Text style={[styles.breakdownSub, { color: colors.textTertiary }]}= ${(c * val).toLocaleString('en-US')}</Text>
+                <Text style={[styles.breakdownSub, { color: colors.textTertiary }]}>= ${(c * val).toLocaleString('en-US')}</Text>
               </View>
             ))}
           </View>
@@ -194,6 +203,19 @@ export default function Precios() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { padding: spacing.lg, paddingBottom: 40 },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: 8,
+    marginBottom: spacing.xl,
+    gap: spacing.sm,
+  },
+  warningText: {
+    fontSize: 13,
+    fontFamily: typography.sans,
+    flex: 1,
+  },
   inputArea: {
     marginBottom: spacing.xl,
   },
