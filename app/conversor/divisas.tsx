@@ -10,7 +10,11 @@ import {
   Modal,
   Pressable,
   ActivityIndicator,
+  Platform,
+  ToastAndroid,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import SubScreenHeader from '../../components/SubScreenHeader';
@@ -77,6 +81,31 @@ function formatTime(iso: string): string {
     return d.toLocaleString('es-CU', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' });
   } catch {
     return iso;
+  }
+}
+
+function timeAgo(dateString: string): string {
+  try {
+    // If it's already an ISO string from fallback
+    let d = new Date(dateString);
+    if (isNaN(d.getTime())) {
+      // Try parsing from the localized es-CU output loosely if possible
+      // This is a bit tricky, so if it fails, just return the string
+      return dateString;
+    }
+    
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    if (isNaN(diffMs) || diffMs < 0) return dateString;
+
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 60) return `hace ${diffMins} min`;
+    const diffHrs = Math.floor(diffMins / 60);
+    if (diffHrs < 24) return `hace ${diffHrs} hr`;
+    const diffDays = Math.floor(diffHrs / 24);
+    return `hace ${diffDays} días`;
+  } catch (err) {
+    return dateString;
   }
 }
 
@@ -155,7 +184,8 @@ export default function Divisas() {
       if (cached) {
         const parsed = JSON.parse(cached) as Rates;
         setRates(parsed);
-        setStatus(`Caché (${result.error}) · ${parsed.timestamp ?? ''}`);
+        const relative = parsed.timestamp ? timeAgo(parsed.timestamp) : '';
+        setStatus(`Caché (${result.error}) · ${relative}`);
         setLoading(false);
         return;
       }
@@ -174,12 +204,13 @@ export default function Divisas() {
         try {
           const parsed = JSON.parse(cached) as Rates;
           setRates(parsed);
-          setStatus(`Caché · ${parsed.timestamp ?? ''}`);
+          const relative = parsed.timestamp ? timeAgo(parsed.timestamp) : '';
+          setStatus(`Caché · ${relative}`);
         } catch (_) {}
       }
     });
     fetchRates();
-  }, []);
+  }, [fetchRates]);
 
   // Conversion
   const convertTo = (toId: string) => {
@@ -214,6 +245,15 @@ export default function Divisas() {
   const activeIdx = picker === 'from' ? fromIdx : picker === 'extra' ? extraIdx : toIdx;
   const isLive = rates.source && rates.source !== 'fallback';
 
+  const copyToClipboard = async (val: string) => {
+    if (!val || val === 'Error') return;
+    await Clipboard.setStringAsync(val);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(`Copiado: ${val}`, ToastAndroid.SHORT);
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <SubScreenHeader title="Divisas" />
@@ -235,35 +275,35 @@ export default function Divisas() {
 
       {/* Unit rows */}
       <View style={styles.unitSection}>
-        <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('from')} activeOpacity={0.6}>
+        <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('from')} onLongPress={() => copyToClipboard(input)} activeOpacity={0.6}>
           <View style={styles.unitLeft}>
             <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{fromCurr.label}</Text>
             <Text style={[styles.unitSymbol, { color: colors.textSecondary }]}> {fromCurr.symbol}</Text>
             <Ionicons name="chevron-expand-outline" size={16} color={colors.textSecondary} style={{ marginLeft: 6 }} />
           </View>
-          <Text style={[styles.unitValue, { color: colors.amber }]}>{input || '0'}</Text>
+          <Text style={[styles.unitValue, { color: colors.amber }]} numberOfLines={1} adjustsFontSizeToFit>{input || '0'}</Text>
         </TouchableOpacity>
 
         <View style={[styles.sep, { backgroundColor: colors.border }]} />
 
-        <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('to')} activeOpacity={0.6}>
+        <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('to')} onLongPress={() => copyToClipboard(result)} activeOpacity={0.6}>
           <View style={styles.unitLeft}>
             <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{toCurr.label}</Text>
             <Text style={[styles.unitSymbol, { color: colors.textSecondary }]}> {toCurr.symbol}</Text>
             <Ionicons name="chevron-expand-outline" size={16} color={colors.textSecondary} style={{ marginLeft: 6 }} />
           </View>
-          <Text style={[styles.unitValue, { color: colors.textPrimary }]}>{result}</Text>
+          <Text style={[styles.unitValue, { color: colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>{result}</Text>
         </TouchableOpacity>
 
         <View style={[styles.sep, { backgroundColor: colors.border }]} />
 
-        <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('extra')} activeOpacity={0.6}>
+        <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('extra')} onLongPress={() => copyToClipboard(extraResult)} activeOpacity={0.6}>
           <View style={styles.unitLeft}>
             <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{extraCurr.label}</Text>
             <Text style={[styles.unitSymbol, { color: colors.textSecondary }]}> {extraCurr.symbol}</Text>
             <Ionicons name="chevron-expand-outline" size={16} color={colors.textSecondary} style={{ marginLeft: 6 }} />
           </View>
-          <Text style={[styles.unitValue, { color: colors.textPrimary }]}>{extraResult}</Text>
+          <Text style={[styles.unitValue, { color: colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>{extraResult}</Text>
         </TouchableOpacity>
       </View>
 
@@ -288,6 +328,7 @@ export default function Divisas() {
                   style={[styles.btn, { backgroundColor: bg, width: BTN_W, height: BTN_H }]}
                   activeOpacity={0.6}
                   onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     if (k.id === 'c') handleClear();
                     else if (k.id === 'bs') handleBackspace();
                     else if (k.id === 'eq') swap();

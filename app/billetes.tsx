@@ -7,7 +7,11 @@ import {
   SafeAreaView,
   ScrollView,
   Dimensions,
+  Platform,
+  ToastAndroid,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -64,11 +68,18 @@ export default function Billetes() {
     });
   }, []);
 
-  const increment = (v: number) =>
+  const increment = (v: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setCounts((p) => ({ ...p, [v]: (p[v] ?? 0) + 1 }));
-  const decrement = (v: number) =>
+  };
+  const decrement = (v: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setCounts((p) => ({ ...p, [v]: Math.max(0, (p[v] ?? 0) - 1) }));
-  const reset = () => setCounts({});
+  };
+  const reset = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setCounts({});
+  };
 
   const total = useMemo(
     () => DENOMS.reduce((acc, d) => acc + (counts[d.valor] ?? 0) * d.valor, 0),
@@ -81,6 +92,15 @@ export default function Billetes() {
   const hasAny = pieces > 0;
 
   const billetes = DENOMS;
+
+  const copyToClipboard = async () => {
+    if (total === 0) return;
+    await Clipboard.setStringAsync(String(total));
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(`Copiado: ${total}`, ToastAndroid.SHORT);
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -97,13 +117,15 @@ export default function Billetes() {
             </TouchableOpacity>
           )}
         </View>
-        <Text
-          style={[styles.totalValue, { color: hasAny ? colors.textPrimary : colors.textSecondary }]}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-        >
-          ${addCommas(total)}
-        </Text>
+        <TouchableOpacity onLongPress={copyToClipboard} activeOpacity={0.7}>
+          <Text
+            style={[styles.totalValue, { color: hasAny ? colors.textPrimary : colors.textSecondary }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            ${addCommas(total)}
+          </Text>
+        </TouchableOpacity>
         {hasAny && (
           <View style={styles.equivRow}>
             <Text style={[styles.equivText, { color: colors.textSecondary }]}>

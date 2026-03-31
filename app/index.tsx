@@ -8,7 +8,10 @@ import {
   Dimensions,
   Platform,
   ScrollView,
+  ToastAndroid,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../context/ThemeContext';
 import { radii, spacing, typography } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -220,6 +223,7 @@ export default function Calculadora() {
   };
 
   const handlePress = (btn: CalcBtn) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     switch (btn.type) {
       case 'digit': appendDigit(btn.label); break;
       case 'op': applyOp(btn.value!); break;
@@ -230,6 +234,16 @@ export default function Calculadora() {
       case 'sci': applySci(btn.value!); break;
       case 'backspace': backspace(); break;
       case 'toggle_sci': setShowSci((s) => !s); break;
+    }
+  };
+
+  const copyToClipboard = async () => {
+    // Only copy if it's a valid number display
+    if (cur === 'Error' || cur === '') return;
+    await Clipboard.setStringAsync(cur);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Platform.OS === 'android') {
+      ToastAndroid.show('Copiado al portapapeles', ToastAndroid.SHORT);
     }
   };
 
@@ -282,14 +296,16 @@ export default function Calculadora() {
           </ScrollView>
 
           {/* Big expression or number */}
-          <Text
-            style={[styles.bigText, { color: colors.textPrimary }]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.3}
-          >
-            {bigDisplay}
-          </Text>
+          <TouchableOpacity onLongPress={copyToClipboard} activeOpacity={0.7}>
+            <Text
+              style={[styles.bigText, { color: colors.textPrimary }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.3}
+            >
+              {bigDisplay}
+            </Text>
+          </TouchableOpacity>
 
           {/* Result preview line */}
           {resultLine !== '' && (

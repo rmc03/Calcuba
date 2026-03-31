@@ -9,7 +9,11 @@ import {
   Dimensions,
   Modal,
   Pressable,
+  Platform,
+  ToastAndroid,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import SubScreenHeader from './SubScreenHeader';
 import { useTheme } from '../context/ThemeContext';
@@ -88,6 +92,15 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
 
   const activeIdx = picker === 'from' ? fromIdx : picker === 'extra' ? extraIdx : toIdx;
 
+  const copyToClipboard = async (val: string) => {
+    if (!val || val === 'Error') return;
+    await Clipboard.setStringAsync(val);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Platform.OS === 'android') {
+      ToastAndroid.show('Copiado al portapapeles', ToastAndroid.SHORT);
+    }
+  };
+
   // Render a unit row
   const renderUnitRow = (
     unit: UnitDef,
@@ -95,7 +108,12 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
     valueColor: string,
     onPress: () => void,
   ) => (
-    <TouchableOpacity style={styles.unitRow} onPress={onPress} activeOpacity={0.6}>
+    <TouchableOpacity
+      style={styles.unitRow}
+      onPress={onPress}
+      onLongPress={() => copyToClipboard(value)}
+      activeOpacity={0.6}
+    >
       <View style={styles.unitLeft}>
         <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{unit.label}</Text>
         {unit.symbol && (
@@ -150,6 +168,7 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
                   style={[styles.btn, { backgroundColor: bg, width: BTN_W, height: BTN_H }]}
                   activeOpacity={0.6}
                   onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     if (k.id === 'c') handleClear();
                     else if (k.id === 'bs') handleBackspace();
                     else if (k.id === 'eq') swap();
