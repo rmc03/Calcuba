@@ -24,9 +24,7 @@ const BTN_H = BTN_W * 0.88;
 export interface UnitDef {
   id: string;
   label: string;
-  /** Short symbol shown in the dropdown subtitle, e.g. "km²" */
   symbol?: string;
-  /** Factor to convert 1 of this unit into the base unit. */
   toBase: number;
 }
 
@@ -40,20 +38,29 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
   const { colors } = useTheme();
   const [fromIdx, setFromIdx] = useState(0);
   const [toIdx, setToIdx] = useState(1);
+  // Third target unit (show a 3rd row like the MIUI reference)
+  const [extraIdx, setExtraIdx] = useState(units.length > 2 ? 2 : -1);
   const [input, setInput] = useState('1');
-  const [picker, setPicker] = useState<'from' | 'to' | null>(null);
+  const [picker, setPicker] = useState<'from' | 'to' | 'extra' | null>(null);
 
   const fromUnit = units[fromIdx];
   const toUnit = units[toIdx];
+  const extraUnit = extraIdx >= 0 ? units[extraIdx] : null;
 
-  const result = useMemo(() => {
+  const convertValue = (fromId: string, toId: string): string => {
     const n = parseFloat(input);
     if (isNaN(n) || input === '') return '';
-    if (customConvert) {
-      return formatResult(customConvert(n, fromUnit.id, toUnit.id));
-    }
-    return formatResult((n * fromUnit.toBase) / toUnit.toBase);
-  }, [input, fromIdx, toIdx]);
+    if (customConvert) return formatResult(customConvert(n, fromId, toId));
+    const fromU = units.find(u => u.id === fromId)!;
+    const toU = units.find(u => u.id === toId)!;
+    return formatResult((n * fromU.toBase) / toU.toBase);
+  };
+
+  const result = useMemo(() => convertValue(fromUnit.id, toUnit.id), [input, fromIdx, toIdx]);
+  const extraResult = useMemo(
+    () => (extraUnit ? convertValue(fromUnit.id, extraUnit.id) : ''),
+    [input, fromIdx, extraIdx],
+  );
 
   const handleDigit = (d: string) => {
     if (d === '.' && input.includes('.')) return;
@@ -74,11 +81,40 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
 
   const selectUnit = (idx: number) => {
     if (picker === 'from') setFromIdx(idx);
-    else setToIdx(idx);
+    else if (picker === 'to') setToIdx(idx);
+    else if (picker === 'extra') setExtraIdx(idx);
     setPicker(null);
   };
 
-  const activeIdx = picker === 'from' ? fromIdx : toIdx;
+  const activeIdx = picker === 'from' ? fromIdx : picker === 'extra' ? extraIdx : toIdx;
+
+  // Render a unit row
+  const renderUnitRow = (
+    unit: UnitDef,
+    value: string,
+    valueColor: string,
+    onPress: () => void,
+  ) => (
+    <TouchableOpacity style={styles.unitRow} onPress={onPress} activeOpacity={0.6}>
+      <View style={styles.unitLeft}>
+        <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{unit.label}</Text>
+        {unit.symbol && (
+          <Text style={[styles.unitSymbol, { color: colors.textSecondary }]}> {unit.symbol}</Text>
+        )}
+        <Text style={{ marginLeft: 4 }}>
+          <Ionicons name="chevron-expand-outline" size={14} color={colors.textSecondary} />
+        </Text>
+      </View>
+      <Text
+        style={[styles.unitValue, { color: valueColor }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.5}
+      >
+        {value || '0'}
+      </Text>
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -86,29 +122,15 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
 
       {/* Unit rows */}
       <View style={styles.unitSection}>
-        <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('from')} activeOpacity={0.6}>
-          <View style={styles.unitLeft}>
-            <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{fromUnit.label}</Text>
-            {fromUnit.symbol && (
-              <Text style={[styles.unitSymbol, { color: colors.textSecondary }]}> {fromUnit.symbol}</Text>
-            )}
-            <Ionicons name="chevron-expand-outline" size={16} color={colors.textSecondary} style={{ marginLeft: 6 }} />
-          </View>
-          <Text style={[styles.unitValue, { color: colors.amber }]}>{input || '0'}</Text>
-        </TouchableOpacity>
-
+        {renderUnitRow(fromUnit, input || '0', colors.amber, () => setPicker('from'))}
         <View style={[styles.separator, { backgroundColor: colors.border }]} />
-
-        <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('to')} activeOpacity={0.6}>
-          <View style={styles.unitLeft}>
-            <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{toUnit.label}</Text>
-            {toUnit.symbol && (
-              <Text style={[styles.unitSymbol, { color: colors.textSecondary }]}> {toUnit.symbol}</Text>
-            )}
-            <Ionicons name="chevron-expand-outline" size={16} color={colors.textSecondary} style={{ marginLeft: 6 }} />
-          </View>
-          <Text style={[styles.unitValue, { color: colors.textPrimary }]}>{result}</Text>
-        </TouchableOpacity>
+        {renderUnitRow(toUnit, result, colors.textPrimary, () => setPicker('to'))}
+        {extraUnit && (
+          <>
+            <View style={[styles.separator, { backgroundColor: colors.border }]} />
+            {renderUnitRow(extraUnit, extraResult, colors.textPrimary, () => setPicker('extra'))}
+          </>
+        )}
       </View>
 
       <View style={{ flex: 1 }} />
@@ -131,7 +153,7 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
                     if (k.id === 'c') handleClear();
                     else if (k.id === 'bs') handleBackspace();
                     else if (k.id === 'eq') swap();
-                    else if (['div', 'mul', 'sub', 'add', 'pct'].includes(k.id)) { /* placeholder */ }
+                    else if (['div', 'mul', 'sub', 'add', 'pct'].includes(k.id)) {}
                     else handleDigit(k.label);
                   }}
                 >
@@ -241,16 +263,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 18,
+    paddingVertical: 16,
+    minHeight: 56,
   },
-  unitLeft: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
-  unitLabel: { fontSize: 17, fontFamily: typography.sans, fontWeight: '400' },
-  unitSymbol: { fontSize: 14, fontFamily: typography.mono },
-  unitValue: { fontSize: 28, fontFamily: typography.sans, fontWeight: '300', marginLeft: 12 },
+  unitLeft: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, flexWrap: 'wrap', maxWidth: '55%' },
+  unitLabel: { fontSize: 16, fontFamily: typography.sans, fontWeight: '400' },
+  unitSymbol: { fontSize: 13, fontFamily: typography.mono },
+  unitValue: { fontSize: 26, fontFamily: typography.sans, fontWeight: '300', marginLeft: 12, flexShrink: 0 },
   separator: { height: StyleSheet.hairlineWidth },
   grid: { padding: GRID_PAD, gap: BTN_GAP },
   row: { flexDirection: 'row', gap: BTN_GAP, justifyContent: 'center' },
-  btn: { borderRadius: radii.xl, alignItems: 'center', justifyContent: 'center' },
+  btn: { borderRadius: BTN_H * 0.32, alignItems: 'center', justifyContent: 'center' },
   btnText: { fontFamily: typography.sans, fontWeight: '400', includeFontPadding: false },
 
   // Dropdown overlay
