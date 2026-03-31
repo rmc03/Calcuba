@@ -38,12 +38,17 @@ function TabIcon({
 function InnerLayout() {
   const { colors, isDark } = useTheme();
   return (
-    <>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor={colors.bg} />
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarStyle: { display: 'none' },
+          tabBarStyle: { 
+            display: 'none', 
+            borderTopWidth: 0, 
+            elevation: 0, 
+            backgroundColor: 'transparent' 
+          },
         }}
       >
         <Tabs.Screen
@@ -69,7 +74,7 @@ function InnerLayout() {
           }}
         />
       </Tabs>
-    </>
+    </View>
   );
 }
 
