@@ -42,7 +42,8 @@
           }
         }
       ],
-      "./withAndroidABI.js"
+      "./withAndroidABI.js",
+      "./withAndroidNotch.js"
     ],
     "extra": {
       "router": {},
