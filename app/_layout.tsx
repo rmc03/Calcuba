@@ -1,13 +1,13 @@
 import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, StyleSheet } from 'react-native';
+import { View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_700Bold } from '@expo-google-fonts/outfit';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 
-SplashScreen.preventAutoHideAsync();
+try { SplashScreen.preventAutoHideAsync(); } catch {}
 
 function TabIcon({
   color,
@@ -18,7 +18,7 @@ function TabIcon({
   size: number;
   variant: 'calc' | 'conversor' | 'billets';
 }) {
-  const iconMap: Record<string, string> = {
+  const iconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
     calc: 'calculator',
     conversor: 'swap-horizontal',
     billets: 'wallet',
@@ -27,7 +27,7 @@ function TabIcon({
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Ionicons 
-        name={iconMap[variant] as any} 
+        name={iconMap[variant]} 
         size={size * 0.7} 
         color={color} 
       />
@@ -99,5 +99,3 @@ export default function Layout() {
     </ThemeProvider>
   );
 }
-
-const styles = StyleSheet.create({});

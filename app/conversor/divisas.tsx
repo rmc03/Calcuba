@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  Dimensions,
   Modal,
   Pressable,
   ActivityIndicator,
@@ -15,38 +14,16 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import SubScreenHeader from '../../components/SubScreenHeader';
 import { useTheme } from '../../context/ThemeContext';
 import { typography, radii, spacing } from '../../constants/theme';
-
-// ─── CONFIG ──────────────────────────────────────────────────
-const STORAGE_KEY = 'calcuba_rates';
-
-// Free, no-auth API with real-time informal rates
-const MDIV_API = 'https://mdiv.pro/api/rates';
-
-const { width: SW } = Dimensions.get('window');
-const GRID_PAD = 14;
-const BTN_GAP = 10;
-const BTN_W = (Math.min(SW, 400) - GRID_PAD * 2 - BTN_GAP * 3) / 4;
-const BTN_H = BTN_W * 0.88;
+import { useRates } from '../../hooks/useRates';
+import { formatNumber } from '../../utils/format';
+import NumericKeypad from '../../components/NumericKeypad';
+import type { Rates } from '../../constants/rates';
 
 // ─── TYPES ───────────────────────────────────────────────────
-interface Rates {
-  USD: number;
-  EUR: number;
-  MLC: number;
-  timestamp?: string;
-  source?: string;
-}
-
-const FALLBACK_RATES: Rates = {
-  USD: 515, EUR: 582, MLC: 392,
-  timestamp: 'Estimadas', source: 'fallback',
-};
-
 interface CurrencyDef {
   id: string;
   label: string;
@@ -68,96 +45,14 @@ function getRate(id: string, rates: Rates): number {
   return 1;
 }
 
-function formatResult(n: number): string {
-  if (!isFinite(n)) return 'Error';
-  const s = parseFloat(n.toPrecision(10)).toString();
-  if (s.includes('e')) return n.toExponential(4);
-  return s;
-}
-
-function formatTime(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString('es-CU', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' });
-  } catch {
-    return iso;
-  }
-}
-
-function timeAgo(dateString: string): string {
-  try {
-    // If it's already an ISO string from fallback
-    let d = new Date(dateString);
-    if (isNaN(d.getTime())) {
-      // Try parsing from the localized es-CU output loosely if possible
-      // This is a bit tricky, so if it fails, just return the string
-      return dateString;
-    }
-    
-    const now = new Date();
-    const diffMs = now.getTime() - d.getTime();
-    if (isNaN(diffMs) || diffMs < 0) return dateString;
-
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 60) return `hace ${diffMins} min`;
-    const diffHrs = Math.floor(diffMins / 60);
-    if (diffHrs < 24) return `hace ${diffHrs} hr`;
-    const diffDays = Math.floor(diffHrs / 24);
-    return `hace ${diffDays} días`;
-  } catch (err) {
-    return dateString;
-  }
-}
-
-// ─── FETCH ───────────────────────────────────────────────────
-async function fetchFromMdiv(): Promise<{ rates?: Rates; error?: string }> {
-  try {
-    // Usamos allorigins como proxy CORS porque mdiv.pro bloquea peticiones desde clientes web estables
-    const PROXY_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(MDIV_API)}`;
-    
-    const res = await fetch(PROXY_URL);
-    if (!res.ok) return { error: `HTTP ${res.status}` };
-    
-    const wrapper = await res.json();
-    if (!wrapper.contents) return { error: 'Proxy vacío' };
-
-    const json = JSON.parse(wrapper.contents);
-    if (!json?.success || !json?.data?.rates) return { error: 'Formato de datos inválido' };
-
-    const r = json.data.rates;
-    const usd = parseFloat(r.avgUsdOverallRate);
-    const eur = parseFloat(r.avgEurOverallRate);
-    const mlc = parseFloat(r.avgMlcOverallRate);
-    const ts = json.data.timestamp;
-
-    if (isNaN(usd) || usd <= 0) return { error: 'Tasas inválidas recibidas' };
-
-    return {
-      rates: {
-        USD: Math.round(usd * 100) / 100,
-        EUR: Math.round((isNaN(eur) ? usd * 1.1 : eur) * 100) / 100,
-        MLC: Math.round((isNaN(mlc) ? usd * 0.76 : mlc) * 100) / 100,
-        timestamp: ts ? formatTime(ts) : new Date().toLocaleString('es-CU'),
-        source: 'mdiv.pro',
-      }
-    };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Error de red / CORS';
-    return { error: msg };
-  }
-}
-
 // ─── COMPONENT ───────────────────────────────────────────────
 export default function Divisas() {
   const { colors } = useTheme();
-
-  const [rates, setRates] = useState<Rates>(FALLBACK_RATES);
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState('');
+  const { rates, loading, status, isLive, refresh } = useRates();
 
   const [fromIdx, setFromIdx] = useState(0);
   const [toIdx, setToIdx] = useState(1);
-  const [extraIdx, setExtraIdx] = useState(2); // 3rd row (EUR by default)
+  const [extraIdx, setExtraIdx] = useState(2);
   const [input, setInput] = useState('1');
   const [picker, setPicker] = useState<'from' | 'to' | 'extra' | null>(null);
 
@@ -165,63 +60,22 @@ export default function Divisas() {
   const toCurr = CURRENCIES[toIdx];
   const extraCurr = CURRENCIES[extraIdx];
 
-  const fetchRates = useCallback(async () => {
-    setLoading(true);
-
-    // 1. Try mdiv.pro
-    const result = await fetchFromMdiv();
-    if (result.rates) {
-      setRates(result.rates);
-      setStatus(`✓ ${result.rates.source} · ${result.rates.timestamp}`);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(result.rates));
-      setLoading(false);
-      return;
-    }
-
-    // 2. Use cached
-    try {
-      const cached = await AsyncStorage.getItem(STORAGE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached) as Rates;
-        setRates(parsed);
-        const relative = parsed.timestamp ? timeAgo(parsed.timestamp) : '';
-        setStatus(`Caché (${result.error}) · ${relative}`);
-        setLoading(false);
-        return;
-      }
-    } catch (_) {}
-
-    // 3. Fallback
-    setRates(FALLBACK_RATES);
-    setStatus(`Sin conexión (${result.error})`);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    // Load cache instantly, then fetch live
-    AsyncStorage.getItem(STORAGE_KEY).then((cached) => {
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached) as Rates;
-          setRates(parsed);
-          const relative = parsed.timestamp ? timeAgo(parsed.timestamp) : '';
-          setStatus(`Caché · ${relative}`);
-        } catch (_) {}
-      }
-    });
-    fetchRates();
-  }, [fetchRates]);
-
-  // Conversion
-  const convertTo = (toId: string) => {
+  // Conversion using primitive deps for correct memoization
+  const result = useMemo(() => {
     const n = parseFloat(input);
     if (isNaN(n) || input === '') return '';
     const fromRate = getRate(fromCurr.id, rates);
-    const toRate = getRate(toId, rates);
-    return formatResult((n * fromRate) / toRate);
-  };
-  const result = useMemo(() => convertTo(toCurr.id), [input, fromIdx, toIdx, rates]);
-  const extraResult = useMemo(() => convertTo(extraCurr.id), [input, fromIdx, extraIdx, rates]);
+    const toRate = getRate(toCurr.id, rates);
+    return formatNumber((n * fromRate) / toRate);
+  }, [input, fromCurr.id, toCurr.id, rates.USD, rates.EUR, rates.MLC]);
+
+  const extraResult = useMemo(() => {
+    const n = parseFloat(input);
+    if (isNaN(n) || input === '') return '';
+    const fromRate = getRate(fromCurr.id, rates);
+    const toRate = getRate(extraCurr.id, rates);
+    return formatNumber((n * fromRate) / toRate);
+  }, [input, fromCurr.id, extraCurr.id, rates.USD, rates.EUR, rates.MLC]);
 
   // Keypad
   const handleDigit = (d: string) => {
@@ -243,12 +97,13 @@ export default function Divisas() {
   };
 
   const activeIdx = picker === 'from' ? fromIdx : picker === 'extra' ? extraIdx : toIdx;
-  const isLive = rates.source && rates.source !== 'fallback';
 
   const copyToClipboard = async (val: string) => {
     if (!val || val === 'Error') return;
     await Clipboard.setStringAsync(val);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
     if (Platform.OS === 'android') {
       ToastAndroid.show(`Copiado: ${val}`, ToastAndroid.SHORT);
     }
@@ -265,45 +120,51 @@ export default function Divisas() {
         ) : (
           <View style={[styles.dot, { backgroundColor: isLive ? colors.green : colors.amber }]} />
         )}
-        <Text style={[styles.statusText, { color: colors.textSecondary }]} numberOfLines={1}>
+        <Text style={[styles.statusText, { color: colors.textSecondary }]} numberOfLines={1} selectable>
           {loading ? 'Actualizando tasas...' : status}
         </Text>
-        <TouchableOpacity onPress={fetchRates} disabled={loading} style={styles.refreshBtn}>
+        <TouchableOpacity
+          onPress={refresh}
+          disabled={loading}
+          style={styles.refreshBtn}
+          accessibilityLabel="Actualizar tasas"
+          accessibilityRole="button"
+        >
           <Ionicons name="refresh" size={18} color={loading ? colors.textTertiary : colors.amber} />
         </TouchableOpacity>
       </View>
 
       {/* Unit rows */}
       <View style={styles.unitSection}>
-        <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('from')} onLongPress={() => copyToClipboard(input)} activeOpacity={0.6}>
+        <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('from')} onLongPress={() => copyToClipboard(input)} activeOpacity={0.6} accessibilityLabel={`Desde ${fromCurr.label}: ${input}`}>
           <View style={styles.unitLeft}>
             <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{fromCurr.label}</Text>
             <Text style={[styles.unitSymbol, { color: colors.textSecondary }]}> {fromCurr.symbol}</Text>
             <Ionicons name="chevron-expand-outline" size={16} color={colors.textSecondary} style={{ marginLeft: 6 }} />
           </View>
-          <Text style={[styles.unitValue, { color: colors.amber }]} numberOfLines={1} adjustsFontSizeToFit>{input || '0'}</Text>
+          <Text style={[styles.unitValue, { color: colors.amber, fontVariant: ['tabular-nums'] }]} numberOfLines={1} adjustsFontSizeToFit selectable>{input || '0'}</Text>
         </TouchableOpacity>
 
         <View style={[styles.sep, { backgroundColor: colors.border }]} />
 
-        <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('to')} onLongPress={() => copyToClipboard(result)} activeOpacity={0.6}>
+        <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('to')} onLongPress={() => copyToClipboard(result)} activeOpacity={0.6} accessibilityLabel={`A ${toCurr.label}: ${result}`}>
           <View style={styles.unitLeft}>
             <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{toCurr.label}</Text>
             <Text style={[styles.unitSymbol, { color: colors.textSecondary }]}> {toCurr.symbol}</Text>
             <Ionicons name="chevron-expand-outline" size={16} color={colors.textSecondary} style={{ marginLeft: 6 }} />
           </View>
-          <Text style={[styles.unitValue, { color: colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>{result}</Text>
+          <Text style={[styles.unitValue, { color: colors.textPrimary, fontVariant: ['tabular-nums'] }]} numberOfLines={1} adjustsFontSizeToFit selectable>{result}</Text>
         </TouchableOpacity>
 
         <View style={[styles.sep, { backgroundColor: colors.border }]} />
 
-        <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('extra')} onLongPress={() => copyToClipboard(extraResult)} activeOpacity={0.6}>
+        <TouchableOpacity style={styles.unitRow} onPress={() => setPicker('extra')} onLongPress={() => copyToClipboard(extraResult)} activeOpacity={0.6} accessibilityLabel={`Extra ${extraCurr.label}: ${extraResult}`}>
           <View style={styles.unitLeft}>
             <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{extraCurr.label}</Text>
             <Text style={[styles.unitSymbol, { color: colors.textSecondary }]}> {extraCurr.symbol}</Text>
             <Ionicons name="chevron-expand-outline" size={16} color={colors.textSecondary} style={{ marginLeft: 6 }} />
           </View>
-          <Text style={[styles.unitValue, { color: colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>{extraResult}</Text>
+          <Text style={[styles.unitValue, { color: colors.textPrimary, fontVariant: ['tabular-nums'] }]} numberOfLines={1} adjustsFontSizeToFit selectable>{extraResult}</Text>
         </TouchableOpacity>
       </View>
 
@@ -314,39 +175,13 @@ export default function Divisas() {
       <View style={{ flex: 1 }} />
 
       {/* Keypad */}
-      <View style={styles.grid}>
-        {KEYPAD.map((row, ri) => (
-          <View key={ri} style={styles.row}>
-            {row.map((k, ki) => {
-              const isEq = k.id === 'eq';
-              const isAction = ['c', 'bs', 'pct', 'div', 'mul', 'sub', 'add'].includes(k.id);
-              const bg = isEq ? colors.amber : colors.bgCard;
-              const fg = isEq ? '#fff' : isAction ? colors.amber : colors.textPrimary;
-              return (
-                <TouchableOpacity
-                  key={ki}
-                  style={[styles.btn, { backgroundColor: bg, width: BTN_W, height: BTN_H }]}
-                  activeOpacity={0.6}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    if (k.id === 'c') handleClear();
-                    else if (k.id === 'bs') handleBackspace();
-                    else if (k.id === 'eq') swap();
-                    else if (['div', 'mul', 'sub', 'add', 'pct'].includes(k.id)) {}
-                    else handleDigit(k.label);
-                  }}
-                >
-                  {k.icon ? (
-                    <Ionicons name={k.icon as any} size={BTN_W * 0.35} color={fg} />
-                  ) : (
-                    <Text style={[styles.btnText, { color: fg, fontSize: BTN_W < 60 ? 18 : 22 }]}>{k.label}</Text>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        ))}
-      </View>
+      <NumericKeypad
+        onDigit={handleDigit}
+        onClear={handleClear}
+        onBackspace={handleBackspace}
+        onSwap={swap}
+        showOperators={true}
+      />
 
       {/* Dropdown */}
       <Modal visible={picker !== null} transparent animationType="fade">
@@ -361,6 +196,9 @@ export default function Divisas() {
                     style={[styles.ddItem, isSelected && { backgroundColor: colors.amber }]}
                     activeOpacity={0.7}
                     onPress={() => selectUnit(i)}
+                    accessibilityLabel={`${u.label} ${u.symbol}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.ddLabel, { color: isSelected ? '#fff' : colors.textPrimary }]}>
@@ -383,14 +221,6 @@ export default function Divisas() {
   );
 }
 
-const KEYPAD = [
-  [{ id: 'c', label: 'C' }, { id: 'bs', label: '', icon: 'backspace-outline' }, { id: 'pct', label: '%' }, { id: 'div', label: '÷' }],
-  [{ id: '7', label: '7' }, { id: '8', label: '8' }, { id: '9', label: '9' }, { id: 'mul', label: '×' }],
-  [{ id: '4', label: '4' }, { id: '5', label: '5' }, { id: '6', label: '6' }, { id: 'sub', label: '−' }],
-  [{ id: '1', label: '1' }, { id: '2', label: '2' }, { id: '3', label: '3' }, { id: 'add', label: '+' }],
-  [{ id: '00', label: '00' }, { id: '0', label: '0' }, { id: '.', label: '.' }, { id: 'eq', label: '=', icon: 'swap-vertical' }],
-];
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
   statusRow: {
@@ -400,23 +230,19 @@ const styles = StyleSheet.create({
     borderRadius: radii.md, borderWidth: 1,
   },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  statusText: { fontSize: 11, fontFamily: typography.mono, flex: 1 },
+  statusText: { fontSize: 11, fontFamily: typography.sans, flex: 1 },
   refreshBtn: { padding: 4 },
   unitSection: { paddingHorizontal: spacing.lg },
   unitRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18 },
   unitLeft: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
   unitLabel: { fontSize: 16, fontFamily: typography.sans },
-  unitSymbol: { fontSize: 13, fontFamily: typography.mono },
+  unitSymbol: { fontSize: 13, fontFamily: typography.sans },
   unitValue: { fontSize: 26, fontFamily: typography.sans, fontWeight: '300', marginLeft: 12 },
   sep: { height: StyleSheet.hairlineWidth },
-  rateInfo: { fontSize: 11, fontFamily: typography.mono, textAlign: 'center', marginTop: spacing.md },
-  grid: { padding: GRID_PAD, gap: BTN_GAP },
-  row: { flexDirection: 'row', gap: BTN_GAP, justifyContent: 'center' },
-  btn: { borderRadius: radii.xl, alignItems: 'center', justifyContent: 'center' },
-  btnText: { fontFamily: typography.sans, fontWeight: '400', includeFontPadding: false },
+  rateInfo: { fontSize: 11, fontFamily: typography.sans, textAlign: 'center', marginTop: spacing.md },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-start', paddingTop: 80, paddingHorizontal: 24 },
   dropdown: { borderRadius: radii.xl, maxHeight: 420, overflow: 'hidden' },
   ddItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 20 },
   ddLabel: { fontSize: 16, fontFamily: typography.sans, fontWeight: '500' },
-  ddSymbol: { fontSize: 12, fontFamily: typography.mono, marginTop: 2 },
+  ddSymbol: { fontSize: 12, fontFamily: typography.sans, marginTop: 2 },
 });

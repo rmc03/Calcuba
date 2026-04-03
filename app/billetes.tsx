@@ -6,7 +6,6 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  Dimensions,
   Platform,
   ToastAndroid,
   Share,
@@ -14,13 +13,12 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import { radii, spacing, typography } from '../constants/theme';
+import { spacing, typography } from '../constants/theme';
+import { useRates } from '../hooks/useRates';
+import { addCommasToNumber } from '../utils/format';
 import TopNavBar from '../components/TopNavBar';
-
-const { width: SW } = Dimensions.get('window');
 
 // ─── Denominations ───────────────────────────────────────────
 interface Denom {
@@ -46,10 +44,6 @@ const DENOMS: Denom[] = [
 
 type Counts = Record<number, number>;
 
-function addCommas(n: number): string {
-  return n.toLocaleString('en-US');
-}
-
 function AnimatedCounter({ value, textStyle }: { value: number; textStyle: any }) {
   const animatedValue = React.useRef(new Animated.Value(value)).current;
   const [displayVal, setDisplayVal] = useState(value);
@@ -72,8 +66,8 @@ function AnimatedCounter({ value, textStyle }: { value: number; textStyle: any }
   }, [value, animatedValue]);
 
   return (
-    <Text style={textStyle} numberOfLines={1} adjustsFontSizeToFit>
-      ${addCommas(displayVal)}
+    <Text style={textStyle} numberOfLines={1} adjustsFontSizeToFit selectable>
+      ${addCommasToNumber(displayVal)}
     </Text>
   );
 }
@@ -82,32 +76,26 @@ function AnimatedCounter({ value, textStyle }: { value: number; textStyle: any }
 export default function Billetes() {
   const { colors } = useTheme();
   const [counts, setCounts] = useState<Counts>({});
-  const [usdRate, setUsdRate] = useState(0);
-  const [eurRate, setEurRate] = useState(0);
+  const { rates } = useRates();
 
-  // Load cached exchange rates
-  useEffect(() => {
-    AsyncStorage.getItem('calcuba_rates').then((cached) => {
-      if (cached) {
-        try {
-          const r = JSON.parse(cached);
-          if (r.USD) setUsdRate(r.USD);
-          if (r.EUR) setEurRate(r.EUR);
-        } catch (_) {}
-      }
-    });
-  }, []);
+  const haptic = (style: any) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(style);
+    }
+  };
 
   const increment = (v: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptic(Haptics.ImpactFeedbackStyle.Light);
     setCounts((p) => ({ ...p, [v]: (p[v] ?? 0) + 1 }));
   };
   const decrement = (v: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptic(Haptics.ImpactFeedbackStyle.Light);
     setCounts((p) => ({ ...p, [v]: Math.max(0, (p[v] ?? 0) - 1) }));
   };
   const reset = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
     setCounts({});
   };
 
@@ -121,12 +109,15 @@ export default function Billetes() {
   );
   const hasAny = pieces > 0;
 
-  const billetes = DENOMS;
+  const usdRate = rates.USD;
+  const eurRate = rates.EUR;
 
   const copyToClipboard = async () => {
     if (total === 0) return;
     await Clipboard.setStringAsync(String(total));
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
     if (Platform.OS === 'android') {
       ToastAndroid.show(`Copiado: ${total}`, ToastAndroid.SHORT);
     }
@@ -134,24 +125,24 @@ export default function Billetes() {
 
   const shareDesglose = async () => {
     if (total === 0) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
+    haptic(Haptics.ImpactFeedbackStyle.Light);
+
     let text = '🧮 Calcuba — Conteo de billetes\n\n';
     DENOMS.forEach(d => {
       const c = counts[d.valor] ?? 0;
       if (c > 0) {
-        text += `${c}× $${addCommas(d.valor)} = $${addCommas(c * d.valor)}\n`;
+        text += `${c}× $${addCommasToNumber(d.valor)} = $${addCommasToNumber(c * d.valor)}\n`;
       }
     });
     text += '──────────\n';
-    text += `Total: $${addCommas(total)} CUP`;
+    text += `Total: $${addCommasToNumber(total)} CUP`;
     if (usdRate > 0) {
       text += ` (≈ $${(total / usdRate).toFixed(2)} USD)`;
     }
-    
+
     try {
       await Share.share({ message: text });
-    } catch (e) {}
+    } catch {}
   };
 
   return (
@@ -164,34 +155,46 @@ export default function Billetes() {
           <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>TOTAL CUP</Text>
           {hasAny && (
             <View style={{ flexDirection: 'row', gap: spacing.md }}>
-              <TouchableOpacity onPress={shareDesglose} style={styles.resetBtn} activeOpacity={0.6}>
+              <TouchableOpacity
+                onPress={shareDesglose}
+                style={styles.resetBtn}
+                activeOpacity={0.6}
+                accessibilityLabel="Compartir desglose"
+                accessibilityRole="button"
+              >
                 <Ionicons name="share-outline" size={16} color={colors.textPrimary} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={reset} style={styles.resetBtn} activeOpacity={0.6}>
+              <TouchableOpacity
+                onPress={reset}
+                style={styles.resetBtn}
+                activeOpacity={0.6}
+                accessibilityLabel="Limpiar conteo"
+                accessibilityRole="button"
+              >
                 <Ionicons name="trash-outline" size={16} color={colors.amber} />
                 <Text style={[styles.resetText, { color: colors.amber }]}> Limpiar</Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
-        <TouchableOpacity onLongPress={copyToClipboard} activeOpacity={0.7}>
-          <AnimatedCounter 
-            value={total} 
+        <TouchableOpacity onLongPress={copyToClipboard} activeOpacity={0.7} accessibilityLabel={`Total: ${total} pesos cubanos`}>
+          <AnimatedCounter
+            value={total}
             textStyle={[styles.totalValue, { color: hasAny ? colors.textPrimary : colors.textSecondary }]}
           />
         </TouchableOpacity>
         {hasAny && (
           <View style={styles.equivRow}>
-            <Text style={[styles.equivText, { color: colors.textSecondary }]}>
+            <Text style={[styles.equivText, { color: colors.textSecondary, fontVariant: ['tabular-nums'] }]}>
               {pieces} {pieces === 1 ? 'pieza' : 'piezas'}
             </Text>
             {usdRate > 0 && (
-              <Text style={[styles.equivText, { color: colors.amber }]}>
+              <Text style={[styles.equivText, { color: colors.amber, fontVariant: ['tabular-nums'] }]}>
                 {' '}· ≈ ${(total / usdRate).toFixed(2)} USD
               </Text>
             )}
             {eurRate > 0 && (
-              <Text style={[styles.equivText, { color: colors.textSecondary }]}>
+              <Text style={[styles.equivText, { color: colors.textSecondary, fontVariant: ['tabular-nums'] }]}>
                 {' '}· €{(total / eurRate).toFixed(2)}
               </Text>
             )}
@@ -201,7 +204,7 @@ export default function Billetes() {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>BILLETES</Text>
-        {billetes.map((d) => {
+        {DENOMS.map((d) => {
           const count = counts[d.valor] ?? 0;
           const sub = count * d.valor;
           return (
@@ -209,18 +212,21 @@ export default function Billetes() {
               <View style={styles.denomLeft}>
                 <Text style={[styles.denomLabel, { color: colors.textPrimary }]}>{d.label}</Text>
                 {count > 0 && (
-                  <Text style={[styles.denomSub, { color: colors.amber }]}>
-                    = ${addCommas(sub)}
+                  <Text style={[styles.denomSub, { color: colors.amber, fontVariant: ['tabular-nums'] }]}>
+                    = ${addCommasToNumber(sub)}
                   </Text>
                 )}
               </View>
 
               <View style={styles.stepper}>
                 <TouchableOpacity
-                  style={[styles.stepBtn, { backgroundColor: colors.bgCard }]}
+                  style={[styles.stepBtn, { backgroundColor: colors.bgCard, borderCurve: 'continuous' as any }]}
                   onPress={() => decrement(d.valor)}
                   disabled={count === 0}
                   activeOpacity={0.6}
+                  accessibilityLabel={`Quitar ${d.label}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: count === 0 }}
                 >
                   <Ionicons
                     name="remove"
@@ -229,14 +235,16 @@ export default function Billetes() {
                   />
                 </TouchableOpacity>
 
-                <Text style={[styles.countText, { color: colors.textPrimary }]}>
+                <Text style={[styles.countText, { color: colors.textPrimary, fontVariant: ['tabular-nums'] }]}>
                   {count}
                 </Text>
 
                 <TouchableOpacity
-                  style={[styles.stepBtn, { backgroundColor: colors.bgCard }]}
+                  style={[styles.stepBtn, { backgroundColor: colors.bgCard, borderCurve: 'continuous' as any }]}
                   onPress={() => increment(d.valor)}
                   activeOpacity={0.6}
+                  accessibilityLabel={`Agregar ${d.label}`}
+                  accessibilityRole="button"
                 >
                   <Ionicons name="add" size={20} color={colors.amber} />
                 </TouchableOpacity>
@@ -268,7 +276,7 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 11,
-    fontFamily: typography.mono,
+    fontFamily: typography.sans,
     letterSpacing: 2,
   },
   resetBtn: {
@@ -293,7 +301,7 @@ const styles = StyleSheet.create({
   },
   equivText: {
     fontSize: 13,
-    fontFamily: typography.mono,
+    fontFamily: typography.sans,
   },
 
   // Scroll
@@ -302,7 +310,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 11,
-    fontFamily: typography.mono,
+    fontFamily: typography.sans,
     letterSpacing: 2,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
@@ -326,7 +334,7 @@ const styles = StyleSheet.create({
   },
   denomSub: {
     fontSize: 12,
-    fontFamily: typography.mono,
+    fontFamily: typography.sans,
     marginTop: 2,
   },
 
@@ -337,9 +345,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   stepBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },

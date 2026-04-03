@@ -5,7 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
-  Dimensions,
+  useWindowDimensions,
   Platform,
   ScrollView,
   ToastAndroid,
@@ -17,15 +17,7 @@ import { useTheme } from '../context/ThemeContext';
 import { radii, spacing, typography } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import TopNavBar from '../components/TopNavBar';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const IS_DESKTOP = SCREEN_WIDTH > 600;
-const MAX_CALC_WIDTH = 400;
-const CALC_WIDTH = Math.min(SCREEN_WIDTH, MAX_CALC_WIDTH);
-
-const GRID_PADDING = IS_DESKTOP ? 20 : 14;
-const BTN_GAP = IS_DESKTOP ? 12 : 10;
-const _rawBtnSize = (CALC_WIDTH - GRID_PADDING * 2 - BTN_GAP * 3) / 4;
+import { formatNumber, displayNumber, opSymbol, compute } from '../utils/format';
 
 type BtnType = 'digit' | 'op' | 'eq' | 'ac' | 'sign' | 'pct' | 'sci' | 'backspace' | 'toggle_sci';
 
@@ -33,6 +25,7 @@ interface CalcBtn {
   label: string;
   type: BtnType;
   value?: string;
+  a11yLabel?: string;
 }
 
 const BUTTONS_SCI: CalcBtn[][] = [
@@ -44,93 +37,67 @@ const BUTTONS_SCI: CalcBtn[][] = [
   ],
   [
     { label: 'ln', type: 'sci', value: 'ln' },
-    { label: '√', type: 'sci', value: 'sqrt' },
-    { label: 'x²', type: 'sci', value: 'sq' },
-    { label: '¹/x', type: 'sci', value: 'inv' },
+    { label: '√', type: 'sci', value: 'sqrt', a11yLabel: 'Raíz cuadrada' },
+    { label: 'x²', type: 'sci', value: 'sq', a11yLabel: 'Elevar al cuadrado' },
+    { label: '¹/x', type: 'sci', value: 'inv', a11yLabel: 'Inverso' },
   ],
 ];
 
 const BUTTONS_MAIN: CalcBtn[][] = [
   [
-    { label: 'C', type: 'ac' },
-    { label: '', type: 'backspace', value: 'backspace' },
-    { label: '%', type: 'pct' },
-    { label: '÷', type: 'op', value: '/' },
+    { label: 'C', type: 'ac', a11yLabel: 'Limpiar' },
+    { label: '', type: 'backspace', value: 'backspace', a11yLabel: 'Borrar dígito' },
+    { label: '%', type: 'pct', a11yLabel: 'Porcentaje' },
+    { label: '÷', type: 'op', value: '/', a11yLabel: 'Dividir' },
   ],
   [
     { label: '7', type: 'digit' },
     { label: '8', type: 'digit' },
     { label: '9', type: 'digit' },
-    { label: '×', type: 'op', value: '*' },
+    { label: '×', type: 'op', value: '*', a11yLabel: 'Multiplicar' },
   ],
   [
     { label: '4', type: 'digit' },
     { label: '5', type: 'digit' },
     { label: '6', type: 'digit' },
-    { label: '−', type: 'op', value: '-' },
+    { label: '−', type: 'op', value: '-', a11yLabel: 'Restar' },
   ],
   [
     { label: '1', type: 'digit' },
     { label: '2', type: 'digit' },
     { label: '3', type: 'digit' },
-    { label: '+', type: 'op', value: '+' },
+    { label: '+', type: 'op', value: '+', a11yLabel: 'Sumar' },
   ],
   [
-    { label: '', type: 'toggle_sci' },
+    { label: '', type: 'toggle_sci', a11yLabel: 'Calculadora científica' },
     { label: '0', type: 'digit' },
-    { label: '.', type: 'digit' },
-    { label: '=', type: 'eq' },
+    { label: '.', type: 'digit', a11yLabel: 'Punto decimal' },
+    { label: '=', type: 'eq', a11yLabel: 'Igual' },
   ],
 ];
 
-// ─── Number formatting with commas ───────────────────────────
-function addCommas(numStr: string): string {
-  const parts = numStr.split('.');
-  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return parts.join('.');
-}
-
-function formatNumber(val: number): string {
-  if (!isFinite(val)) return 'Error';
-  const str = parseFloat(val.toPrecision(10)).toString();
-  if (str.includes('e')) return val.toExponential(4);
-  return str;
-}
-
-function displayNumber(str: string): string {
-  if (str === 'Error' || str.includes('e')) return str;
-  // Handle negative
-  if (str.startsWith('-')) return '-' + addCommas(str.slice(1));
-  return addCommas(str);
-}
-
-const opSymbol = (o: string) =>
-  ({ '/': '÷', '*': '×', '-': '−', '+': '+' }[o] ?? o);
-
-const compute = (a: number, b: number, o: string): number => {
-  switch (o) {
-    case '+': return a + b;
-    case '-': return a - b;
-    case '*': return a * b;
-    case '/': return b === 0 ? NaN : a / b;
-    default: return b;
-  }
-};
+const MAX_CALC_WIDTH = 400;
 
 export default function Calculadora() {
   const { colors } = useTheme();
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
+  const IS_DESKTOP = SCREEN_WIDTH > 600;
+  const CALC_WIDTH = Math.min(SCREEN_WIDTH, MAX_CALC_WIDTH);
+
   const [cur, setCur] = useState('0');
   const [op, setOp] = useState<string | null>(null);
   const [prev, setPrev] = useState<number | null>(null);
   const [waitOp, setWaitOp] = useState(false);
   const [hasResult, setHasResult] = useState(false);
   const [showSci, setShowSci] = useState(false);
-  // History: stores past { expr, result } entries
   const [history, setHistory] = useState<{ expr: string; result: string }[]>([]);
-  // Live expression parts for the big display
   const [liveExpr, setLiveExpr] = useState('');
 
   const BUTTONS = useMemo(() => showSci ? [...BUTTONS_SCI, ...BUTTONS_MAIN] : BUTTONS_MAIN, [showSci]);
+
+  const GRID_PADDING = IS_DESKTOP ? 20 : 14;
+  const BTN_GAP = IS_DESKTOP ? 12 : 10;
+  const _rawBtnSize = (CALC_WIDTH - GRID_PADDING * 2 - BTN_GAP * 3) / 4;
   const _maxBtnHeight = Math.max((SCREEN_HEIGHT - 320) / BUTTONS.length, 30);
   const BTN_SIZE = Math.min(_rawBtnSize, _maxBtnHeight);
   const BTN_HEIGHT = BTN_SIZE;
@@ -138,9 +105,7 @@ export default function Calculadora() {
   useEffect(() => {
     AsyncStorage.getItem('calcuba_history').then((cached) => {
       if (cached) {
-        try {
-          setHistory(JSON.parse(cached));
-        } catch (_) {}
+        try { setHistory(JSON.parse(cached)); } catch {}
       }
     });
   }, []);
@@ -191,7 +156,6 @@ export default function Calculadora() {
     const res = compute(prev, val, op);
     const resStr = formatNumber(res);
     const exprStr = `${displayNumber(formatNumber(prev))}${opSymbol(op)}${displayNumber(cur)}`;
-    // Add to history
     const newHist = [...history.slice(-8), { expr: exprStr, result: displayNumber(resStr) }];
     saveHistory(newHist);
     setCur(resStr);
@@ -241,7 +205,9 @@ export default function Calculadora() {
   };
 
   const handlePress = (btn: CalcBtn) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     switch (btn.type) {
       case 'digit': appendDigit(btn.label); break;
       case 'op': applyOp(btn.value!); break;
@@ -256,10 +222,11 @@ export default function Calculadora() {
   };
 
   const copyToClipboard = async () => {
-    // Only copy if it's a valid number display
     if (cur === 'Error' || cur === '') return;
     await Clipboard.setStringAsync(cur);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
     if (Platform.OS === 'android') {
       ToastAndroid.show('Copiado al portapapeles', ToastAndroid.SHORT);
     }
@@ -277,23 +244,18 @@ export default function Calculadora() {
     return colors.textPrimary;
   };
 
-  // Build the big display: either the live expression or the current number
   const bigDisplay = liveExpr
     ? `${liveExpr}${waitOp ? '' : displayNumber(cur)}`
     : displayNumber(cur);
 
-  // Build the result line (shown when there's a pending operation and user typed digits)
   const resultLine = useMemo(() => {
     if (op && prev !== null && !waitOp) {
       const val = parseFloat(cur);
       const res = compute(prev, val, op);
       return `= ${displayNumber(formatNumber(res))}`;
     }
-    if (hasResult) {
-      return '';
-    }
     return '';
-  }, [cur, op, prev, waitOp, hasResult]);
+  }, [cur, op, prev, waitOp]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -307,19 +269,34 @@ export default function Calculadora() {
             showsVerticalScrollIndicator={false}
           >
             {history.map((h, i) => (
-              <Text key={i} style={[styles.historyText, { color: colors.textSecondary }]} numberOfLines={1}>
+              <Text
+                key={i}
+                style={[styles.historyText, { color: colors.textSecondary }]}
+                numberOfLines={1}
+                selectable
+              >
                 {h.expr}= {h.result}
               </Text>
             ))}
           </ScrollView>
 
           {/* Big expression or number */}
-          <TouchableOpacity onLongPress={copyToClipboard} activeOpacity={0.7}>
+          <TouchableOpacity
+            onLongPress={copyToClipboard}
+            activeOpacity={0.7}
+            accessibilityLabel={`Resultado: ${bigDisplay}`}
+            accessibilityRole="text"
+          >
             <Text
-              style={[styles.bigText, { color: colors.textPrimary }]}
+              style={[styles.bigText, {
+                color: colors.textPrimary,
+                fontSize: IS_DESKTOP ? 72 : 56,
+                lineHeight: IS_DESKTOP ? 84 : 68,
+              }]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.3}
+              selectable
             >
               {bigDisplay}
             </Text>
@@ -327,17 +304,24 @@ export default function Calculadora() {
 
           {/* Result preview line */}
           {resultLine !== '' && (
-            <Text style={[styles.resultText, { color: colors.textSecondary }]} numberOfLines={1}>
+            <Text
+              style={[styles.resultText, {
+                color: colors.textSecondary,
+                fontSize: IS_DESKTOP ? 28 : 24,
+              }]}
+              numberOfLines={1}
+              selectable
+            >
               {resultLine}
             </Text>
           )}
         </View>
 
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <View style={[styles.divider, { backgroundColor: colors.border, marginHorizontal: GRID_PADDING }]} />
 
-        <View style={styles.grid}>
+        <View style={[styles.grid, { padding: GRID_PADDING, gap: BTN_GAP }]}>
           {BUTTONS.map((row, ri) => (
-            <View key={ri} style={styles.row}>
+            <View key={ri} style={[styles.row, { gap: BTN_GAP }]}>
               {row.map((btn, bi) => (
                 <TouchableOpacity
                   key={bi}
@@ -348,10 +332,13 @@ export default function Calculadora() {
                       width: BTN_SIZE,
                       height: BTN_HEIGHT,
                       borderRadius: BTN_HEIGHT / 2,
+                      borderCurve: 'continuous' as any,
                     },
                   ]}
                   onPress={() => handlePress(btn)}
                   activeOpacity={0.65}
+                  accessibilityLabel={btn.a11yLabel || btn.label || btn.type}
+                  accessibilityRole="button"
                 >
                   {btn.type === 'backspace' ? (
                     <Ionicons
@@ -377,7 +364,7 @@ export default function Calculadora() {
                               : btn.type === 'digit'
                               ? (IS_DESKTOP ? 28 : 26)
                               : (IS_DESKTOP ? 24 : 22),
-                          fontFamily: btn.type === 'sci' ? typography.mono : typography.sans,
+                          fontFamily: btn.type === 'sci' ? typography.sans : typography.sans,
                           fontWeight: btn.type === 'digit' ? '400' : '500',
                         },
                       ]}
@@ -425,29 +412,23 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   bigText: {
-    fontSize: IS_DESKTOP ? 72 : 56,
     fontFamily: typography.sans,
     fontWeight: Platform.select({ ios: '300', android: '300', default: '300' }),
     textAlign: 'right',
     letterSpacing: -1,
-    lineHeight: IS_DESKTOP ? 84 : 68,
   },
   resultText: {
-    fontSize: IS_DESKTOP ? 28 : 24,
     fontFamily: typography.sans,
     fontWeight: '300',
     textAlign: 'right',
     marginTop: spacing.xs,
   },
-  divider: { height: StyleSheet.hairlineWidth, marginHorizontal: GRID_PADDING },
+  divider: { height: StyleSheet.hairlineWidth },
   grid: {
-    padding: GRID_PADDING,
     paddingTop: spacing.md,
-    gap: BTN_GAP,
   },
   row: {
     flexDirection: 'row',
-    gap: BTN_GAP,
     justifyContent: 'center',
   },
   btn: {

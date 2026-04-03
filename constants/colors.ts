@@ -37,7 +37,7 @@ export const palette = {
   black: '#000000',
 };
 
-export type ColorScheme = Omit<typeof darkColors, 'statusBar'> & Omit<typeof lightColors, 'statusBar'> & { statusBar: 'light' | 'dark' };
+export type ColorScheme = typeof darkColors | typeof lightColors;
 
 export const darkColors = {
   bg: palette.dark0,

@@ -2,10 +2,12 @@ import { Platform } from 'react-native';
 
 export const typography = {
   display: 'Outfit_500Medium',
-  mono: 'Outfit_400Regular',
   sans: 'Outfit_400Regular',
+  sansLight: 'Outfit_400Regular',
   sansMedium: 'Outfit_500Medium',
   sansBold: 'Outfit_700Bold',
+  /** @deprecated Use `sansLight` or `sans` instead. Outfit is not monospaced. */
+  mono: 'Outfit_400Regular',
 };
 
 export const radii = {

@@ -6,7 +6,6 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  Dimensions,
   Modal,
   Pressable,
   Platform,
@@ -16,14 +15,10 @@ import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import SubScreenHeader from './SubScreenHeader';
+import NumericKeypad from './NumericKeypad';
 import { useTheme } from '../context/ThemeContext';
 import { typography, radii, spacing } from '../constants/theme';
-
-const { width: SW } = Dimensions.get('window');
-const GRID_PAD = 14;
-const BTN_GAP = 10;
-const BTN_W = (Math.min(SW, 400) - GRID_PAD * 2 - BTN_GAP * 3) / 4;
-const BTN_H = BTN_W * 0.88;
+import { formatNumber } from '../utils/format';
 
 export interface UnitDef {
   id: string;
@@ -42,7 +37,6 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
   const { colors } = useTheme();
   const [fromIdx, setFromIdx] = useState(0);
   const [toIdx, setToIdx] = useState(1);
-  // Third target unit (show a 3rd row like the MIUI reference)
   const [extraIdx, setExtraIdx] = useState(units.length > 2 ? 2 : -1);
   const [input, setInput] = useState('1');
   const [picker, setPicker] = useState<'from' | 'to' | 'extra' | null>(null);
@@ -54,10 +48,10 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
   const convertValue = (fromId: string, toId: string): string => {
     const n = parseFloat(input);
     if (isNaN(n) || input === '') return '';
-    if (customConvert) return formatResult(customConvert(n, fromId, toId));
+    if (customConvert) return formatNumber(customConvert(n, fromId, toId));
     const fromU = units.find(u => u.id === fromId)!;
     const toU = units.find(u => u.id === toId)!;
-    return formatResult((n * fromU.toBase) / toU.toBase);
+    return formatNumber((n * fromU.toBase) / toU.toBase);
   };
 
   const result = useMemo(() => convertValue(fromUnit.id, toUnit.id), [input, fromIdx, toIdx]);
@@ -68,7 +62,8 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
 
   const handleDigit = (d: string) => {
     if (d === '.' && input.includes('.')) return;
-    if (input === '0' && d !== '.') { setInput(d); return; }
+    if (d === '00' && input === '0') return;
+    if (input === '0' && d !== '.' && d !== '00') { setInput(d); return; }
     setInput(input + d);
   };
   const handleClear = () => setInput('0');
@@ -76,12 +71,7 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
     if (input.length <= 1) { setInput('0'); return; }
     setInput(input.slice(0, -1));
   };
-
-  const swap = () => {
-    const f = fromIdx;
-    setFromIdx(toIdx);
-    setToIdx(f);
-  };
+  const swap = () => { const f = fromIdx; setFromIdx(toIdx); setToIdx(f); };
 
   const selectUnit = (idx: number) => {
     if (picker === 'from') setFromIdx(idx);
@@ -95,13 +85,14 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
   const copyToClipboard = async (val: string) => {
     if (!val || val === 'Error') return;
     await Clipboard.setStringAsync(val);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
     if (Platform.OS === 'android') {
       ToastAndroid.show('Copiado al portapapeles', ToastAndroid.SHORT);
     }
   };
 
-  // Render a unit row
   const renderUnitRow = (
     unit: UnitDef,
     value: string,
@@ -113,21 +104,22 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
       onPress={onPress}
       onLongPress={() => copyToClipboard(value)}
       activeOpacity={0.6}
+      accessibilityLabel={`${unit.label}: ${value || '0'}`}
+      accessibilityRole="button"
     >
       <View style={styles.unitLeft}>
         <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{unit.label}</Text>
         {unit.symbol && (
           <Text style={[styles.unitSymbol, { color: colors.textSecondary }]}> {unit.symbol}</Text>
         )}
-        <Text style={{ marginLeft: 4 }}>
-          <Ionicons name="chevron-expand-outline" size={14} color={colors.textSecondary} />
-        </Text>
+        <Ionicons name="chevron-expand-outline" size={14} color={colors.textSecondary} style={{ marginLeft: 4 }} />
       </View>
       <Text
-        style={[styles.unitValue, { color: valueColor }]}
+        style={[styles.unitValue, { color: valueColor, fontVariant: ['tabular-nums'] }]}
         numberOfLines={1}
         adjustsFontSizeToFit
         minimumFontScale={0.5}
+        selectable
       >
         {value || '0'}
       </Text>
@@ -138,7 +130,6 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <SubScreenHeader title={title} />
 
-      {/* Unit rows */}
       <View style={styles.unitSection}>
         {renderUnitRow(fromUnit, input || '0', colors.amber, () => setPicker('from'))}
         <View style={[styles.separator, { backgroundColor: colors.border }]} />
@@ -153,42 +144,15 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
 
       <View style={{ flex: 1 }} />
 
-      {/* Keypad */}
-      <View style={styles.grid}>
-        {KEYPAD.map((row, ri) => (
-          <View key={ri} style={styles.row}>
-            {row.map((k, ki) => {
-              const isEq = k.id === 'eq';
-              const isAction = ['c', 'bs', 'pct', 'div', 'mul', 'sub', 'add'].includes(k.id);
-              const bg = isEq ? colors.amber : colors.bgCard;
-              const fg = isEq ? '#fff' : isAction ? colors.amber : colors.textPrimary;
-              return (
-                <TouchableOpacity
-                  key={ki}
-                  style={[styles.btn, { backgroundColor: bg, width: BTN_W, height: BTN_H }]}
-                  activeOpacity={0.6}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    if (k.id === 'c') handleClear();
-                    else if (k.id === 'bs') handleBackspace();
-                    else if (k.id === 'eq') swap();
-                    else if (['div', 'mul', 'sub', 'add', 'pct'].includes(k.id)) {}
-                    else handleDigit(k.label);
-                  }}
-                >
-                  {k.icon ? (
-                    <Ionicons name={k.icon as any} size={BTN_W * 0.35} color={fg} />
-                  ) : (
-                    <Text style={[styles.btnText, { color: fg, fontSize: BTN_W < 60 ? 18 : 22 }]}>{k.label}</Text>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        ))}
-      </View>
+      <NumericKeypad
+        onDigit={handleDigit}
+        onClear={handleClear}
+        onBackspace={handleBackspace}
+        onSwap={swap}
+        showOperators={true}
+      />
 
-      {/* Dropdown picker overlay */}
+      {/* Dropdown picker */}
       <Modal visible={picker !== null} transparent animationType="fade">
         <Pressable style={styles.overlay} onPress={() => setPicker(null)}>
           <View style={[styles.dropdown, { backgroundColor: colors.bgCard }]}>
@@ -198,32 +162,24 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
                 return (
                   <TouchableOpacity
                     key={u.id}
-                    style={[
-                      styles.dropdownItem,
-                      isSelected && { backgroundColor: colors.amber },
-                    ]}
+                    style={[styles.dropdownItem, isSelected && { backgroundColor: colors.amber }]}
                     activeOpacity={0.7}
                     onPress={() => selectUnit(i)}
+                    accessibilityLabel={`${u.label}${u.symbol ? ' ' + u.symbol : ''}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
                   >
                     <View style={{ flex: 1 }}>
-                      <Text style={[
-                        styles.dropdownLabel,
-                        { color: isSelected ? '#fff' : colors.textPrimary },
-                      ]}>
+                      <Text style={[styles.dropdownLabel, { color: isSelected ? '#fff' : colors.textPrimary }]}>
                         {u.label}
                       </Text>
                       {u.symbol && (
-                        <Text style={[
-                          styles.dropdownSymbol,
-                          { color: isSelected ? 'rgba(255,255,255,0.7)' : colors.textSecondary },
-                        ]}>
+                        <Text style={[styles.dropdownSymbol, { color: isSelected ? 'rgba(255,255,255,0.7)' : colors.textSecondary }]}>
                           {u.symbol}
                         </Text>
                       )}
                     </View>
-                    {isSelected && (
-                      <Ionicons name="checkmark" size={22} color="#fff" />
-                    )}
+                    {isSelected && <Ionicons name="checkmark" size={22} color="#fff" />}
                   </TouchableOpacity>
                 );
               })}
@@ -233,46 +189,6 @@ export default function UnitConverter({ title, units, customConvert }: Props) {
       </Modal>
     </SafeAreaView>
   );
-}
-
-const KEYPAD = [
-  [
-    { id: 'c', label: 'C' },
-    { id: 'bs', label: '', icon: 'backspace-outline' },
-    { id: 'pct', label: '%' },
-    { id: 'div', label: '÷' },
-  ],
-  [
-    { id: '7', label: '7' },
-    { id: '8', label: '8' },
-    { id: '9', label: '9' },
-    { id: 'mul', label: '×' },
-  ],
-  [
-    { id: '4', label: '4' },
-    { id: '5', label: '5' },
-    { id: '6', label: '6' },
-    { id: 'sub', label: '−' },
-  ],
-  [
-    { id: '1', label: '1' },
-    { id: '2', label: '2' },
-    { id: '3', label: '3' },
-    { id: 'add', label: '+' },
-  ],
-  [
-    { id: '00', label: '00' },
-    { id: '0', label: '0' },
-    { id: '.', label: '.' },
-    { id: 'eq', label: '=', icon: 'swap-vertical' },
-  ],
-];
-
-function formatResult(n: number): string {
-  if (!isFinite(n)) return 'Error';
-  const s = parseFloat(n.toPrecision(10)).toString();
-  if (s.includes('e')) return n.toExponential(4);
-  return s;
 }
 
 const styles = StyleSheet.create({
@@ -287,15 +203,9 @@ const styles = StyleSheet.create({
   },
   unitLeft: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, flexWrap: 'wrap', maxWidth: '55%' },
   unitLabel: { fontSize: 16, fontFamily: typography.sans, fontWeight: '400' },
-  unitSymbol: { fontSize: 13, fontFamily: typography.mono },
+  unitSymbol: { fontSize: 13, fontFamily: typography.sans },
   unitValue: { fontSize: 26, fontFamily: typography.sans, fontWeight: '300', marginLeft: 12, flexShrink: 0 },
   separator: { height: StyleSheet.hairlineWidth },
-  grid: { padding: GRID_PAD, gap: BTN_GAP },
-  row: { flexDirection: 'row', gap: BTN_GAP, justifyContent: 'center' },
-  btn: { borderRadius: BTN_H * 0.32, alignItems: 'center', justifyContent: 'center' },
-  btnText: { fontFamily: typography.sans, fontWeight: '400', includeFontPadding: false },
-
-  // Dropdown overlay
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -308,9 +218,7 @@ const styles = StyleSheet.create({
     maxHeight: 420,
     overflow: 'hidden',
   },
-  dropdownScroll: {
-    paddingVertical: 8,
-  },
+  dropdownScroll: { paddingVertical: 8 },
   dropdownItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -324,7 +232,7 @@ const styles = StyleSheet.create({
   },
   dropdownSymbol: {
     fontSize: 13,
-    fontFamily: typography.mono,
+    fontFamily: typography.sans,
     marginTop: 2,
   },
 });

@@ -33,7 +33,7 @@ export default function TopNavBar() {
             {tabs.map((tab) => (
               <TouchableOpacity
                 key={tab.path}
-                onPress={() => router.replace(tab.path as any)}
+                onPress={() => router.replace(tab.path as import('expo-router').Href)}
                 activeOpacity={0.7}
                 style={[
                   styles.pillItem,
